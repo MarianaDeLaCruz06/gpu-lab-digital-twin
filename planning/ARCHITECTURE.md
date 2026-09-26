@@ -266,7 +266,7 @@ Raw `ConnectivityObservation(node_id, ONLINE|OFFLINE, observed_at, received_at, 
 
 **Decision:** `OPEN DESIGN DECISION` (ODD-5). Evidence is insufficient to select a strategy or numeric values. The architecture supplies the port and requires explicit versioned configuration; it provides no default.
 
-Until configured, raw connectivity changes are preserved as evidence and create an administrative `ERR_POLICY_UNRESOLVED` diagnostic, but they do not change NodeState, public ConnectivityStatus, cordon, or AlertEpisode state. Implementation readiness remains blocked until ODD-5 is approved. After configuration, a qualifying pattern activates `ERR_CONNECTIVITY_FLAPPING`, forces cordon, and the Alert Projector opens or updates exactly one episode keyed `(node_id, ERR_CONNECTIVITY_FLAPPING)`. Raw observations never write NodeState directly. Alert repeat/delivery timing remains ODD-6; internal deduplication does not depend on that value.
+Until configured, raw connectivity changes are preserved as evidence and upsert exactly one current administrative `ERR_POLICY_UNRESOLVED` diagnostic per node, but they do not change NodeState, public ConnectivityStatus, cordon, or AlertEpisode state. This evidence-only hold is the baseline containment behavior for the mandatory five-second sequence: it produces zero one-for-one public transitions and zero alert floods without inventing a debounce threshold. After configuration, a qualifying pattern activates `ERR_CONNECTIVITY_FLAPPING`, forces cordon, and the Alert Projector opens or updates exactly one episode keyed `(node_id, ERR_CONNECTIVITY_FLAPPING)`. Raw observations never write NodeState directly. Alert repeat/delivery timing remains ODD-6; internal deduplication does not depend on that value.
 
 ### 6.7 Connectivity status projection
 
@@ -300,7 +300,7 @@ Inventory topology, device ownership, capacities, and heartbeat-interval configu
 | `gpu_samples` | One per configured GPU | Exact count and unique device IDs |
 | `temperature_c` | GPU sample | Finite and nonnegative Celsius value; `>88` thermal activation |
 | `vram_occupied_gb` | GPU sample | Finite; `0 <= occupied <= configured capacity` |
-| `driver_health` | Node sample | Required nonempty normalized code; semantic mapping comes from PolicyConfig; an unmapped code is accepted as evidence but fails closed under ODD-8 |
+| `driver_health` | Node sample | Required enum `HEALTHY`, `UNHEALTHY`, or `UNKNOWN`; `UNHEALTHY` activates `DRIVER_UNHEALTHY`, `UNKNOWN` activates `DRIVER_HEALTH_UNKNOWN`, and both cordon; every other value rejects the heartbeat atomically |
 | `storage_free_gb` | Node sample | Finite; `0 <= free <= configured capacity` |
 | `reservation_context` | Embedded `EXTERNAL_MOCK` fact envelope | Normalized through External Context Port; source revision/time required; no booking semantics |
 | `workload_context` | Embedded `EXTERNAL_MOCK` fact envelope | Normalized through External Context Port; source revision/observed time/count/IDs required |
@@ -449,7 +449,7 @@ AlertEpisodeStore allows at most one open episode per `(node_id, reason_code)`. 
 - **Concurrency:** nodes may process concurrently; one node processes one ordered event at a time.
 - **Restart:** with in-memory adapters, restart reinitializes from the canonical fixture and clearly labels history reset. Durable restart recovery is deferred with NFR-12.
 - **Clock:** all timers use the injected Clock; domain logic cannot call wall-clock time directly.
-- **Backpressure:** the sequencer may reject/queue above an implementation capacity, but numeric throughput/latency budgets remain ODD under NFR-11; it cannot drop accepted events silently.
+- **Backpressure:** the sequencer cannot drop accepted events silently. The standalone baseline makes no throughput/latency SLA; it records baseline measurements while the fleet publication barrier prevents partially evaluated results from exposure.
 - **Security:** production authentication/RBAC is outside Module 3. The prototype binds mutation surfaces to the local Carlos fixture and exposes no remote production claim.
 - **Observability boundary:** application diagnostics may record ingestion/reducer errors; enterprise dashboards, long-horizon metrics, token/latency monitoring, and executive reports are out of scope.
 
@@ -592,12 +592,12 @@ The prototype cannot create reservations, control jobs, query physical GPUs, or 
 - ODD-5: flapping strategy and enter/clear configuration.
 - ODD-6: repeat-alert/delivery/acknowledgement policy.
 - ODD-7: drain timeout/failure escalation; no forced action exists meanwhile.
-- ODD-8: driver vocabulary/health mapping and low-storage policy.
-- NFR-11: decision latency budget and measurement sample.
-- NFR-12: history duration, capacity, pagination, and durable restart behavior.
+- ODD-8: low-storage policy and any future vendor-specific driver-code adapter mapping; the normalized prototype driver vocabulary is closed.
+- NFR-11 follow-up: any numeric production latency SLA and its measurement sample; baseline implementation records measurements without claiming an SLA.
+- NFR-12 follow-up: numeric in-session history, replay-window, pagination, and input-size limits, plus any durable restart behavior; the baseline is explicitly process-local and reset-on-restart.
 - Implementation seed: language/framework, API transport, UI transport, datastore, packaging, and deployment topology.
 
-None of these deferred values receives a default in the architecture. When an already-active reason needs unresolved configuration to clear, the reducer holds the existing safe cordoned result with a named explanation. Unclassified raw connectivity evidence cannot activate flapping or mutate cordon until ODD-5 is approved.
+None of these deferred values receives a default in the architecture. They do not block the process-local standalone baseline because its safe behavior and non-claims are explicit. When an already-active reason needs unresolved configuration to clear, the reducer holds the existing safe cordoned result with a named explanation. Unclassified raw connectivity evidence cannot activate flapping or mutate cordon until ODD-5 is approved.
 
 ## 14. Architecture traceability
 

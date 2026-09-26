@@ -48,6 +48,5 @@ Example uses the mandatory thermal scenario for `ws-gpu-14`.
 
 - `OFFLINE`: explain strict `>3 configured intervals`, show last-known telemetry and last accepted heartbeat.
 - `RECOVERING`: show old/new boot-session evidence and “Recovery exit criteria: OPEN DESIGN DECISION (ODD-3),” with no progress percentage.
-- `CONNECTIVITY UNSTABLE`: keep stable primary state, show raw five-second observations, one episode update count, and ODD-5/ODD-6 notice.
+- Five-second alternation with ODD-5 unresolved: keep public state/connectivity/cordon unchanged, show raw observations and one current policy-unresolved diagnostic, and show no flapping episode. `CONNECTIVITY UNSTABLE` is the conditional substitution only after approved classification.
 - `DRAINING`: show maintenance lock, external/mock workload IDs/count, no ETA, and no kill control.
-

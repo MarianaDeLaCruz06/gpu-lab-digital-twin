@@ -112,8 +112,8 @@ Stale values retain their last accepted value, timestamp, and `Last known` prefi
 For alternating online/offline observations every five seconds:
 
 - Keep the last stable public state in the card's primary state position while evaluation is pending.
-- Show `CONNECTIVITY UNSTABLE`, `CORDONED`, latest raw observation, observation count, and one open `ERR_CONNECTIVITY_FLAPPING` alert episode.
-- Update the same alert row's count/time; do not add a toast or row per observation.
+- While ODD-5 is unresolved, retain the last stable public connectivity and cordon values, show the latest raw observation and observation count on Node Detail, and show one current `ERR_POLICY_UNRESOLVED` diagnostic; do not show `CONNECTIVITY UNSTABLE` or create a flapping alert episode.
+- If an approved ODD-5 policy later classifies the evidence, show `CONNECTIVITY UNSTABLE`, `CORDONED`, and one open `ERR_CONNECTIVITY_FLAPPING` episode; repeated qualifying observations update that row rather than add a toast or row.
 - Do not pulse, flash, animate, reorder, or swap the primary label on every observation.
 - Show `OPEN DESIGN DECISION: stabilization and repeat-alert timing (ODD-5/ODD-6)`; no countdown or hidden default.
 
@@ -193,4 +193,4 @@ Carlos confirms a maintenance lock, watches the external/mock workload count mov
 
 ### Flow 4 — Carlos investigates unstable connectivity
 
-Carlos sees one `CONNECTIVITY UNSTABLE` episode update as observations alternate every five seconds. **Climax:** the node stays cordoned and visually stable, while raw observations remain inspectable and ODD-5/ODD-6 are clearly unresolved.
+Carlos sees the last stable public state/connectivity remain fixed as observations alternate every five seconds. **Climax:** raw observations and one current policy-unresolved diagnostic remain inspectable, while the UI creates no flapping alert flood and does not claim `CONNECTIVITY UNSTABLE` or change cordon until ODD-5 is approved.

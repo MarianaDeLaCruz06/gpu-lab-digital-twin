@@ -35,7 +35,7 @@ The simulated telemetry generator starts periodic heartbeats for the canonical 3
 - Malformed, duplicate, late, or unknown-node heartbeats are rejected without replacing last-known-good telemetry; the rejection explanation links to the affected field/rule.
 - If inventory is empty or not 32 nodes, show a page-level configuration error rather than a healthy empty fleet.
 - If the page loses its data connection, keep last-known values, mark them stale, and expose Retry.
-- If connectivity alternates every five seconds, hold a stable primary state, show `CONNECTIVITY UNSTABLE` plus `CORDONED`, and update one alert episode. **OPEN DESIGN DECISION:** ODD-5/ODD-6 timing values are not displayed or inferred.
+- If connectivity alternates every five seconds while ODD-5 is unresolved, hold public state/connectivity/cordon stable, retain raw observations, and show one current policy-unresolved diagnostic with 0 flapping alert episodes. `CONNECTIVITY UNSTABLE`, `CORDONED`, and one updating flapping episode are conditional on a future approved classification. **OPEN DESIGN DECISION:** ODD-5/ODD-6 timing values are not displayed or inferred.
 
 ## System feedback
 
@@ -64,4 +64,3 @@ Carlos can account for exactly 32 unique nodes, distinguish current from stale t
 
 - **FRs:** FR-1, FR-2, FR-3, FR-4, FR-7, FR-11, FR-12, FR-13.
 - **NFRs:** NFR-1, NFR-4, NFR-5, NFR-6, NFR-7, NFR-9, NFR-10, NFR-13.
-

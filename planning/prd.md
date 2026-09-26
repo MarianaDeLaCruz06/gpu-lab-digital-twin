@@ -97,7 +97,7 @@ Physical lab machines fail, overheat, reboot, and disconnect. Without one author
 - **ODD-5 — Flapping stabilization/debounce policy.** The mandatory case alternates every 5 seconds, but the stable-window duration, transition-count window, and clear criteria are not specified. No value is silently selected.
 - **ODD-6 — Alert episode repeat interval and delivery destination.** Alert flooding must be prevented, but reminder cadence and external notification integration are not specified.
 - **ODD-7 — Maintenance drain timeout and failure policy.** No deadline or forced-termination authority is assigned to Module 3. Until decided, the twin remains `DRAINING` and reports blocked progress; it never kills work.
-- **ODD-8 — Driver-health vocabulary and low-storage thresholds.** Accepted driver status codes and any low-storage health threshold are not supplied. They remain configurable inputs and cannot be used to invent automatic failure boundaries. Until a supplied driver value has an approved health mapping, it cannot yield `HEALTHY`; evaluation holds the node cordoned with `ERR_POLICY_UNRESOLVED`.
+- **ODD-8 — Low-storage threshold and vendor driver-code mapping.** No low-storage health threshold or vendor-specific status vocabulary is supplied, so neither may create an automatic failure boundary. The hardware-agnostic prototype contract itself uses the normalized `HEALTHY`, `UNHEALTHY`, and `UNKNOWN` driver-health values defined in §12; a future adapter may map vendor codes only through separately approved configuration.
 
 ## 8. Functional requirements
 
@@ -160,7 +160,7 @@ Physical lab machines fail, overheat, reboot, and disconnect. Without one author
 - **Responsibility:** Derive exactly one externally visible node state and an independent cordon value from accepted facts using the state model in §10.
 - **Trigger:** Any accepted telemetry update, maintenance command, mocked workload update, or simulated clock evaluation.
 - **Inputs:** Current state, freshness, maintenance lock, drain status, boot/session evidence, thermal status, driver health, and configured recovery/flapping policies.
-- **Validation rules:** Evaluate transition precedence in the fixed order defined in §10; all evaluated inputs must come from accepted current facts; unresolved ODD values must be supplied as configuration before the relevant exit transition is enabled; a driver value without an approved health mapping selects/retains a safe cordoned state under `ERR_POLICY_UNRESOLVED` and cannot yield `HEALTHY`.
+- **Validation rules:** Evaluate transition precedence in the fixed order defined in §10; all evaluated inputs must come from accepted current facts; unresolved ODD values must be supplied as configuration before the relevant exit transition is enabled; normalized driver `UNHEALTHY` selects/retains `DEGRADED` subject to precedence and cordons, while `UNKNOWN` fails closed and cordons.
 - **Outputs:** Current state, cordon value, reason codes, transition record if changed, and decision explanation whether changed or held.
 - **Measurable testable condition:** For every row in the state transition table, repeated evaluation of identical inputs produces an identical state, cordon value, reason-code set, and explanation rule ID.
 
@@ -188,8 +188,8 @@ Physical lab machines fail, overheat, reboot, and disconnect. Without one author
 - **Trigger:** Repeated connectivity evidence alternates between heartbeat-present and silence at five-second cadence.
 - **Inputs:** Simulated `ConnectivityObservation` events, timestamps, current stable state, open alert episode, and configured ODD-5/ODD-6 values.
 - **Validation rules:** Each observation contains a known node ID, `ONLINE` or `OFFLINE`, and observation time; raw observations are retained separately from Heartbeats; observations enter the same FR-7 state evaluation path and never mutate state directly; public state changes only after the configured stabilization rule is satisfied; while one `(node_id, CONNECTIVITY_FLAPPING)` episode is open, equivalent observations update that episode rather than create alerts; no default timing threshold may be assumed.
-- **Outputs:** Stable public state, `cordoned=true` while flapping is active, reason `CONNECTIVITY_FLAPPING`, one evolving alert episode, raw observation history, and explanation naming the configured policy.
-- **Measurable testable condition:** In a parameterized test using any approved ODD-5 policy, 12 alternating observations at five-second spacing produce no more than one open flapping alert episode and no externally visible transition for each observation; the test is blocked from product sign-off until ODD-5 and ODD-6 are approved.
+- **Outputs:** With approved ODD-5 classification: stable public state, `cordoned=true`, reason `CONNECTIVITY_FLAPPING`, one evolving alert episode, raw observation history, and explanation naming the policy. Without approved ODD-5 classification: unchanged public state/connectivity/cordon, raw observation history, and exactly one current `ERR_POLICY_UNRESOLVED` diagnostic.
+- **Measurable testable condition:** Twelve alternating observations at five-second spacing produce 0 one-for-one public transitions and at most 1 open flapping alert episode. With ODD-5 unresolved, the expected count is 0 flapping episodes and exactly 1 current policy-unresolved diagnostic; parameterized classification/clear tests are added only when ODD-5 is approved.
 
 ### FR-11 — Fleet and node views
 
@@ -227,11 +227,11 @@ Physical lab machines fail, overheat, reboot, and disconnect. Without one author
 - **NFR-5 — Idempotency:** Replaying any accepted heartbeat 100 times produces exactly 1 applied telemetry version and at most 1 matching transition and 1 matching open alert episode.
 - **NFR-6 — Determinism:** Repeating each state-machine test vector 1,000 times yields 1 distinct output tuple `(state, cordoned, reason codes, rule ID)` per vector.
 - **NFR-7 — Explainability coverage:** 100% of transition, cordon, hold, and rejection records contain a rule ID, prior/result state where applicable, event/evaluation times, and at least 1 immutable evidence/version ID; 0 records may use only free-form rationale, and 100% must cite exactly the evidence set recorded by the evaluation trace.
-- **NFR-8 — Flapping containment:** For the mandatory 12-observation, five-second alternating sequence, the system creates at most 1 concurrently open `CONNECTIVITY_FLAPPING` alert episode and 0 one-for-one public state transitions. Passing product sign-off additionally requires approved numeric ODD-5 and ODD-6 configuration.
+- **NFR-8 — Flapping containment:** For the mandatory 12-observation, five-second alternating sequence, the system creates 0 one-for-one public state transitions and at most 1 concurrently open `CONNECTIVITY_FLAPPING` alert episode. While ODD-5 is unresolved, the permitted result is 0 flapping alert episodes, unchanged public state/connectivity/cordon, retained raw evidence, and exactly 1 current `ERR_POLICY_UNRESOLVED` diagnostic for the node; an approved ODD-5 configuration is required only to classify and display `CONNECTIVITY_UNSTABLE`, not to implement or pass containment.
 - **NFR-9 — Data integrity:** In the mandatory test suite, 0 malformed, unknown-node, duplicate, or late-ignored heartbeats overwrite last-known-good current telemetry.
 - **NFR-10 — Prototype coverage:** Automated scenario tests must achieve 4 of 4 mandatory scenario passes and 1 of 1 mandatory edge-case pass before Phase 1 downstream handoff; any failed case blocks closure.
-- **NFR-11 — Decision latency:** `OPEN DESIGN DECISION`: the maximum time from heartbeat receipt or simulated clock advance to exposed state/cordon result is not specified by the official sources. A numeric budget must be approved before implementation readiness; tests must then show at least 99% of evaluations within that budget over a declared sample size.
-- **NFR-12 — Retention capacity:** `OPEN DESIGN DECISION`: the required history duration and maximum stored decision/telemetry records are unspecified. Numeric retention and capacity limits must be approved before implementation readiness; no infinite-retention claim is permitted.
+- **NFR-11 — Decision exposure ordering:** Because the official sources provide no time budget, the prototype makes no latency SLA. In 100% of mandatory-scenario evaluations, state, cordon, alert, and explanation outputs must commit atomically before their resulting fleet version is exposed; baseline latency is measured and recorded during implementation, and any later numeric SLA requires a separate approved decision.
+- **NFR-12 — Process-local state boundary:** The standalone baseline uses process-local state, retains exactly 1 current projection per configured node, and makes 0 durable-history claims across restart. A restart reinitializes all 32 nodes from the canonical fixture and visibly labels prior session history unavailable. Numeric in-session history, replay-window, pagination, and input-size limits are post-baseline hardening decisions; until selected, the prototype must not claim infinite retention or production capacity.
 - **NFR-13 — State-precedence collision coverage:** The state-machine suite must test 100% of the 10 transition-table rows, every pair among maintenance, silence, reboot/state loss, thermal anomaly, unhealthy driver, and flapping conditions, plus 1 all-at-once vector; every vector must assert state, cordon, retained reason codes, rule ID, and lock-release reevaluation result.
 
 ## 10. Domain entities
@@ -309,7 +309,7 @@ Each simulated Heartbeat contains:
 | `gpu_samples[]` | yes | Exactly configured GPU count; unique GPU IDs |
 | `gpu_samples[].vram_occupied_gb` | yes | Finite, `0 <= value <= configured capacity` |
 | `gpu_samples[].temperature_c` | yes | Finite °C value; `>88` activates thermal reason |
-| `driver_health` | yes | Recognized configured enum; vocabulary is ODD-8 |
+| `driver_health` | yes | Normalized enum `HEALTHY`, `UNHEALTHY`, or `UNKNOWN`; every other value is rejected |
 | `storage_free_gb` | yes | Finite and non-negative; bounded by capacity when supplied |
 | `reservation_refs[]` | yes | Mocked external read-only identifiers; empty allowed |
 | `active_workload_refs[]` | yes | Mocked external identifiers used for drain display only |

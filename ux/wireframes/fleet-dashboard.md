@@ -28,19 +28,19 @@ Text wireframe; component behavior and tokens are governed by `../DESIGN.md` and
 │               │ Driver healthy   │ Driver healthy   │ Driver healthy   │ Driver healthy  │ [Inspect node]              │
 │               │ SSD 312/500 GB   │ SSD 420/500 GB   │ SSD 202/500 GB   │ SSD 390/500 GB  │                             │
 │               │ HB 2s ago        │ HB 1s ago        │ HB 2s ago        │ HB 3s ago       │ WARNING                     │
-│               ├───────────────────┼───────────────────┼───────────────────┼──────────────────┤ ws-gpu-09 · FLAPPING        │
-│               │ ws-gpu-05        │ ws-gpu-06        │ ws-gpu-07        │ ws-gpu-08       │ CONNECTIVITY UNSTABLE       │
+│               ├───────────────────┼───────────────────┼───────────────────┼──────────────────┤ ws-gpu-09 · RAW ALTERNATION │
+│               │ ws-gpu-05        │ ws-gpu-06        │ ws-gpu-07        │ ws-gpu-08       │ POLICY UNRESOLVED           │
 │               │ ↻ RECOVERING     │ ✓ HEALTHY        │ ✓ HEALTHY        │ ✓ HEALTHY       │ observations 12             │
-│               │ 🔒 CORDONED      │ ● ONLINE         │ ● ONLINE         │ ● ONLINE        │ one open episode            │
+│               │ 🔒 CORDONED      │ ● ONLINE         │ ● ONLINE         │ ● ONLINE        │ 0 flapping episodes         │
 │               │ Latest HB 1s ago │ GPU 61°C         │ GPU 48°C         │ GPU 59°C        │ ODD-5/ODD-6 OPEN            │
 │               │ State loss       │ VRAM 4/24 GB     │ VRAM 0/24 GB     │ VRAM 9/24 GB    │ [Inspect node]              │
 │               │ ODD-3 OPEN       │ Driver healthy   │ Driver healthy   │ Driver healthy  │                             │
 │               ├───────────────────┼───────────────────┼───────────────────┼──────────────────┤                             │
 │               │ ws-gpu-09        │ ws-gpu-10        │ ws-gpu-11        │ ws-gpu-12       │ ALERT RULE                  │
 │               │ ⚠ DEGRADED       │ ✓ HEALTHY        │ ✓ HEALTHY        │ ✓ HEALTHY       │ One open row per            │
-│               │ CONNECTIVITY     │ ● ONLINE         │ ● ONLINE         │ ● ONLINE        │ (node, reason). Repeated     │
-│               │ UNSTABLE         │ …telemetry…      │ …telemetry…      │ …telemetry…     │ observations update count;  │
-│               │ 🔒 CORDONED      │                  │                  │                 │ no repeated toasts.         │
+│               │ ● ONLINE (held)  │ ● ONLINE         │ ● ONLINE         │ ● ONLINE        │ (node, diagnostic). Raw     │
+│               │ ODD-5 OPEN       │ …telemetry…      │ …telemetry…      │ …telemetry…     │ observations update count;  │
+│               │ eligibility held│                  │                  │                 │ no repeated toasts.         │
 │               ├───────────────────┼───────────────────┼───────────────────┼──────────────────┤                             │
 │               │ ws-gpu-13        │ ws-gpu-14        │ ws-gpu-15        │ ws-gpu-16       │                             │
 │               │ ✓ HEALTHY        │ ⚠ DEGRADED       │ ✓ HEALTHY        │ ✓ HEALTHY       │                             │
@@ -73,4 +73,3 @@ Text wireframe; component behavior and tokens are governed by `../DESIGN.md` and
 3. The alert rail is durable and deduplicated; it is not a toast stack.
 4. Cards keep the highest-risk current fact visible but provide Node Detail for complete evidence.
 5. Ellipses stand for the same required card anatomy, not omitted nodes or optional telemetry.
-

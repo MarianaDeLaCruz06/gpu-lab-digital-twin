@@ -41,9 +41,9 @@ These four scenarios cover the authoritative Module 3 journeys. All use the desk
 
 ## Mandatory edge-case contract
 
-A node alternates simulated `ONLINE`/`OFFLINE` observations every five seconds. The Fleet Dashboard keeps the last stable public state in its primary position, shows `CONNECTIVITY UNSTABLE` and `CORDONED`, and updates one open `(node_id, ERR_CONNECTIVITY_FLAPPING)` alert episode. Raw observations remain visible on Node Detail. The UI does not flash, reorder, swap state one-for-one, create repeated toasts, or invent a countdown.
+A node alternates simulated `ONLINE`/`OFFLINE` observations every five seconds. While ODD-5 is unresolved, the Fleet Dashboard keeps the last stable public state, connectivity, and cordon values; Node Detail shows raw observations and one current `ERR_POLICY_UNRESOLVED` diagnostic. The UI creates zero flapping alert episodes, and it does not flash, reorder, swap state one-for-one, create repeated toasts, or invent a countdown. If a future approved ODD-5 policy classifies the evidence, the existing conditional presentation uses `CONNECTIVITY UNSTABLE`, `CORDONED`, and at most one open `(node_id, ERR_CONNECTIVITY_FLAPPING)` episode.
 
-**OPEN DESIGN DECISION:** ODD-5 stabilization/clear criteria and ODD-6 repeat-alert timing remain unresolved. Phase 2 defines their presentation but does not choose numeric values.
+**OPEN DESIGN DECISION:** ODD-5 stabilization/clear criteria and ODD-6 repeat-alert timing remain unresolved. Their unresolved baseline and conditional post-classification presentations are defined without choosing numeric values.
 
 ## Quality gate
 
@@ -51,4 +51,3 @@ A node alternates simulated `ONLINE`/`OFFLINE` observations every five seconds. 
 - Carlos owns operational containment and maintenance journeys; Alex receives comprehensible availability/recovery evidence without scheduler controls.
 - Every automated change has a reason, rule ID, evidence/version, and timestamp.
 - No scenario creates reservations, schedules jobs, kills workloads, or uses physical GPU hardware.
-

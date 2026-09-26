@@ -38,7 +38,7 @@ Exact fields from PRD §12, including node/event/receive time, boot/session or s
 - **Thermal:** banner uses Critical treatment, identifies GPU and exact value; `DEGRADED` and `CORDONED` remain separate.
 - **Silent/offline:** last accepted time, configured interval reference, elapsed count, strict `>3` comparison, and last-known values.
 - **Recovering:** prior/new boot/session evidence and no percentage/ETA while ODD-3 is open.
-- **Flapping:** stable primary state, `CONNECTIVITY UNSTABLE`, raw observation list, single alert episode count, ODD-5/ODD-6 notice.
+- **Five-second alternation:** raw observation list, stable public state/connectivity/cordon, one current `ERR_POLICY_UNRESOLVED` diagnostic, and ODD-5/ODD-6 notice. `CONNECTIVITY UNSTABLE` and a single flapping episode appear only after an approved ODD-5 policy classifies the evidence.
 - **Maintenance:** primary maintenance-related state plus retained health reasons; command record vs heartbeat observation shown separately.
 
 ## Buttons and actions
@@ -79,4 +79,3 @@ Active alert episodes appear at top of timeline and remain associated with their
 ## Traceability
 
 FR-2–7, FR-9–11, FR-13; NFR-3–9, NFR-11–13.
-

@@ -238,3 +238,38 @@ This log records human-directed constraints and corrections applied to AI-assist
 - **Decision:** Reject the suggestion and retain the values.
 - **Rationale:** The fleet topology in `Task plan 2.pdf` explicitly supplies those capacities.
 - **Status:** Rejected using authoritative source evidence.
+
+## DL-34 — Readiness gate refuses unsupported PASS
+
+- **Gate evidence:** The mandatory flapping UX contradicts the architecture while ODD-5 is unresolved; ODD-8, NFR-11, and NFR-12/ODD-2 also require approval before implementation readiness.
+- **Decision:** Set Phase 4 readiness to `FAIL`, preserve closed Phase 1–3 artifacts, and do not invent policies to manufacture PASS.
+- **Rationale:** The assignment permits FAIL and explicitly forbids unsupported thresholds or behavior. Human authority is required for four blockers before implementation begins.
+- **Status:** Accepted gate decision; implementation sign-off withheld.
+
+## DL-35 — Readiness correction: unresolved flapping is evidence-only
+
+- **Blocker:** RG-B01 found that UX promised `CONNECTIVITY UNSTABLE`, cordon, and an alert before ODD-5 could classify the raw five-second sequence.
+- **Human-directed correction:** Align UX with the PRD/architecture safe hold: preserve public state, connectivity, and cordon; retain raw observations; upsert one policy-unresolved diagnostic; create zero flapping alerts until an approved policy classifies the evidence.
+- **Rationale:** This meets the mandatory no-oscillation/no-flood outcome without inventing a debounce or hysteresis threshold.
+- **Status:** Accepted; RG-B01 resolved.
+
+## DL-36 — Readiness correction: normalized prototype driver health
+
+- **Blocker:** RG-B02 treated the absence of vendor driver codes as preventing a healthy simulated fleet.
+- **Human-directed correction:** Close the hardware-agnostic prototype contract to `HEALTHY`, `UNHEALTHY`, and `UNKNOWN`; reject other heartbeat values and leave vendor-code adapters deferred.
+- **Rationale:** Driver health is mandatory existing telemetry, and the normalized health meanings already exist in the PRD state logic; no vendor or physical-GPU behavior is added.
+- **Status:** Accepted; RG-B02 resolved.
+
+## DL-37 — Readiness correction: do not invent a latency SLA
+
+- **Blocker:** RG-B03 arose because NFR-11 made an unsupported numeric latency SLA a prerequisite to implementation.
+- **Human-directed correction:** Replace that invented prerequisite with the existing atomic-exposure invariant: 100% of mandatory-scenario results commit before their fleet version is exposed. Record baseline latency during implementation; approve any later SLA separately.
+- **Rationale:** The official sources supply no time budget, and implementation readiness does not require manufacturing one.
+- **Status:** Accepted; RG-B03 resolved with a non-blocking measurement follow-up.
+
+## DL-38 — Readiness correction: process-local persistence boundary
+
+- **Blocker:** RG-B04 promoted unspecified production retention, replay, and capacity limits into prerequisites for a standalone in-memory prototype.
+- **Human-directed correction:** Bind the baseline to exactly one current projection per each of 32 nodes, zero durable-history claims, and canonical reset on restart. Defer numeric in-session history, replay-window, pagination, and input-size hardening with explicit non-claims and atomic validation.
+- **Rationale:** This uses the already-selected in-memory boundary, avoids infinite-retention claims, and adds no production scope or arbitrary limits.
+- **Status:** Accepted; RG-B04 resolved with non-blocking hardening follow-ups.

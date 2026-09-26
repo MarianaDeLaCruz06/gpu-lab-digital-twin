@@ -53,7 +53,8 @@ Missing values are `— Not reported`; stale values are `Last known · [timestam
 | `DRAINING` | Maintenance token, cordon, external/mock remaining workload count |
 | `MAINTENANCE` | Wrench token, cordon, lock reason indicator |
 | `UNKNOWN` | No accepted heartbeat; cordoned; no fabricated telemetry |
-| Flapping | Stable primary state + `CONNECTIVITY UNSTABLE` + cordon; one updating alert episode |
+| Five-second alternation, ODD-5 unresolved | Stable public state/connectivity/cordon + policy-unresolved indicator; 0 flapping alert episodes |
+| Flapping classified by approved ODD-5 policy | Stable primary state + `CONNECTIVITY UNSTABLE` + cordon; one updating alert episode |
 
 ## Buttons and actions
 
