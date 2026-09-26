@@ -105,3 +105,45 @@ This log records human-directed constraints and corrections applied to AI-assist
 - **Human-directed decision:** Accept the finding; allow at most one open episode per `(node_id, reason_code)`, close only under that reason's approved clear rule, and create a new episode for later recurrence.
 - **Rationale:** This prevents alert floods without erasing distinct incidents.
 - **Status:** Accepted review correction.
+
+## DL-15 — UX correction: ONLINE is connectivity, not node health
+
+- **AI recommendation considered:** Use `ONLINE` as the main healthy-state label because the Phase 2 brief asks for it.
+- **Human-directed correction:** Preserve the PRD's canonical `HEALTHY` state and show `ONLINE` only as a separate connectivity/freshness signal.
+- **Rationale:** A reachable node may still be degraded, recovering, maintained, or cordoned; conflating connectivity with health would contradict Phase 1.
+- **Status:** Substantially improved.
+
+## DL-16 — UX rejection: animated flapping indicator and countdown
+
+- **AI recommendation considered:** Pulse the node card and show a debounce countdown during five-second online/offline alternation.
+- **Human-directed correction:** Reject flashing/pulsing and any countdown. Keep the primary label stable, show `CONNECTIVITY UNSTABLE`, and name ODD-5/ODD-6.
+- **Rationale:** Animation would create visual oscillation and the countdown would invent an unapproved threshold.
+- **Status:** Rejected.
+
+## DL-17 — UX correction: maintenance progress is count-based
+
+- **AI recommendation considered:** Render drain progress as a percentage with an estimated completion time.
+- **Human-directed correction:** Show only accepted external/mock workload count, IDs, and update time; no percentage or ETA.
+- **Rationale:** Module 3 does not own workload duration or scheduling, and ODD-7 supplies no timeout/estimate policy.
+- **Status:** Rejected and corrected for scope/unsupported inference.
+
+## DL-18 — UX correction: atomic fleet snapshots
+
+- **Edge-case finding:** Summary counts could update before cards and alerts, producing a contradictory screen.
+- **Human-directed decision:** Bind summary, grid, and alert rail to one fleet evaluation/version and retain the prior complete snapshot during refresh.
+- **Rationale:** Operational decisions require a coherent view, not mixed-version telemetry.
+- **Status:** Accepted review correction.
+
+## DL-19 — UX correction: reconcile unknown maintenance outcomes
+
+- **Edge-case finding:** A lost command response could invite an unsafe retry.
+- **Human-directed decision:** Display `Outcome unknown`, block retry, and reconcile the authoritative lock record/timeline before another command.
+- **Rationale:** Prevents duplicate or conflicting maintenance commands without building a scheduler.
+- **Status:** Accepted review correction.
+
+## DL-20 — UX rejection: force-cancel stalled workloads
+
+- **Edge-case suggestion:** Add workload termination when drain remains blocked.
+- **Human-directed decision:** Reject the control and retain `DRAINING`, external/mock workload evidence, and ODD-7 notice.
+- **Rationale:** Termination, checkpointing, and scheduling are explicitly outside Module 3.
+- **Status:** Rejected for scope creep.
