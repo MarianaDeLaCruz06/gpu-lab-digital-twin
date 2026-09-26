@@ -147,3 +147,94 @@ This log records human-directed constraints and corrections applied to AI-assist
 - **Human-directed decision:** Reject the control and retain `DRAINING`, external/mock workload evidence, and ODD-7 notice.
 - **Rationale:** Termination, checkpointing, and scheduling are explicitly outside Module 3.
 - **Status:** Rejected for scope creep.
+
+## DL-21 — Architecture selection: serialized reducer, not mutable CRUD
+
+- **Alternatives considered:** Shared mutable services, full event sourcing, and a per-node serialized reducer with evidence ledger/current projection.
+- **Decision:** Adopt the per-node serialized reducer behind hexagonal ports.
+- **Rationale:** It makes races and explanations deterministic without adding full replay/snapshot operations beyond the prototype.
+- **Status:** Accepted architecture decision.
+
+## DL-22 — Architecture correction: atomic domain unit of work
+
+- **Review finding:** Projection, evidence, alert, lock, and idempotency writes could partially commit.
+- **Decision:** Require one DomainUnitOfWork for all outputs of a processed node event; any write failure aborts all.
+- **Rationale:** A state without its explanation or idempotency result would corrupt subsequent decisions.
+- **Status:** Accepted review correction.
+
+## DL-23 — Architecture correction: one owner for external context
+
+- **Review finding:** Reservation/workload facts appeared both inside Heartbeat and behind an external adapter.
+- **Decision:** Normalize embedded facts through one External Context Port with source revision/time; Heartbeat does not own them.
+- **Rationale:** Prevents stale overwrite and scope drift into reservation/job ownership.
+- **Status:** Accepted review correction.
+
+## DL-24 — Architecture rejection: hard-code flapping window
+
+- **AI recommendation considered:** Select a 30-second sliding window with four transitions.
+- **Decision:** Reject the values; preserve the versioned Stability Policy port and ODD-5/ODD-6.
+- **Rationale:** Neither authoritative source approves a strategy or numeric threshold.
+- **Status:** Rejected.
+
+## DL-25 — Architecture correction: maintenance completion needs observed post-lock zero
+
+- **Edge-case finding:** A pre-lock workload observation could arrive after lock acquisition and falsely complete drain.
+- **Decision:** Require source revision increase and both observation and receipt times at/after lock acquisition.
+- **Rationale:** Receive order alone cannot prove the zero-workload fact describes the drain period.
+- **Status:** Accepted review correction.
+
+## DL-26 — Architecture correction: policy-version provenance
+
+- **Review finding:** Decision Records cited facts but not the exact interval/mapping/stabilization configuration.
+- **Decision:** Add immutable PolicyConfig and cite its version in every reducer decision.
+- **Rationale:** Reproduction and explanation require the rules as well as the inputs.
+- **Status:** Accepted review correction.
+
+## DL-27 — Architecture rejection: physical NVML fallback
+
+- **Edge-case suggestion:** Query physical GPU state when simulated samples are missing.
+- **Decision:** Reject the adapter; preserve absent/last-known data and safe cordon behavior.
+- **Rationale:** Physical NVIDIA dependency violates the authoritative hardware-agnostic constraint.
+- **Status:** Rejected.
+
+## DL-28 — Architecture correction: maintenance release is a reducer choice
+
+- **Review finding:** The initial diagram could be implemented as a transient persisted `UNKNOWN` state on release.
+- **Decision:** Replace it with a non-persisted choice node whose guarded result commits with lock removal.
+- **Rationale:** Release must reevaluate existing facts without generating a false intermediate state.
+- **Status:** Accepted review correction.
+
+## DL-29 — Architecture correction: maintenance workload evidence is total
+
+- **Independent finding:** An active lock with missing/stale workload evidence could fall through to a non-maintenance state.
+- **Decision:** Make such evidence select `DRAINING` with `DRAIN_STATUS_UNKNOWN`; only fresh post-lock zero selects `MAINTENANCE`.
+- **Rationale:** Maintenance precedence must cover positive, zero, and unknown evidence without releasing cordon.
+- **Status:** Accepted blocking correction.
+
+## DL-30 — Architecture correction: raw connectivity is evidence-only
+
+- **Independent finding:** Raw five-second observations could oscillate public ConnectivityStatus before ODD-5 classification.
+- **Decision:** Raw observations cannot mutate NodeState, ConnectivityStatus, cordon, or AlertEpisode; an approved policy must classify them first.
+- **Rationale:** Prevents visible oscillation and implicit thresholds while leaving ODD-5 explicit.
+- **Status:** Accepted blocking correction.
+
+## DL-31 — Architecture correction: fleet Tick publication barrier
+
+- **Independent finding:** A Tick could expose mixed pre/post-evaluation states across 32 nodes.
+- **Decision:** Publish a Tick fleet version only after all 32 node processors record outcomes; serve the prior complete version meanwhile.
+- **Rationale:** Matches the UX atomic snapshot contract and prevents contradictory counts/cards.
+- **Status:** Accepted blocking correction.
+
+## DL-32 — Architecture correction: reboot evidence epochs
+
+- **Independent finding:** A state-loss marker without a changed boot ID could allow older events to refill cleared fields.
+- **Decision:** Increment a monotonic evidence epoch for every accepted successor session or explicit marker; older-epoch events cannot mutate state.
+- **Rationale:** Makes state loss deterministic for both supported evidence forms.
+- **Status:** Accepted blocking correction.
+
+## DL-33 — Architecture rejection: remove authoritative storage capacities
+
+- **Review suggestion:** Treat 500 GB workstation and 4 TB server storage capacities as invented.
+- **Decision:** Reject the suggestion and retain the values.
+- **Rationale:** The fleet topology in `Task plan 2.pdf` explicitly supplies those capacities.
+- **Status:** Rejected using authoritative source evidence.
