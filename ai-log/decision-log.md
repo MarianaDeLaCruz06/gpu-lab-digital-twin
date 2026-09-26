@@ -273,3 +273,10 @@ This log records human-directed constraints and corrections applied to AI-assist
 - **Human-directed correction:** Bind the baseline to exactly one current projection per each of 32 nodes, zero durable-history claims, and canonical reset on restart. Defer numeric in-session history, replay-window, pagination, and input-size hardening with explicit non-claims and atomic validation.
 - **Rationale:** This uses the already-selected in-memory boundary, avoids infinite-retention claims, and adds no production scope or arbitrary limits.
 - **Status:** Accepted; RG-B04 resolved with non-blocking hardening follow-ups.
+
+## DL-39 — UX correction: unresolved policy does not universally force cordon
+
+- **Audit finding:** A broad UX error-state sentence said every `ERR_POLICY_UNRESOLVED` keeps a node cordoned, conflicting with the established ODD-5 evidence-only path.
+- **Human-directed correction:** Make unresolved-policy presentation preserve the state and cordon result defined by the applicable policy; unresolved ODD-5 specifically preserves the node's existing cordon value.
+- **Rationale:** This aligns UX with the final PRD and Architecture without changing product behavior or inventing a flapping threshold.
+- **Status:** Accepted pre-submission correction.

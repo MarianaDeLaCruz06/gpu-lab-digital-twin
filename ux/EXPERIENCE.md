@@ -86,7 +86,7 @@ Use Carlos and Alex by name in scenario copy and documentation. Surface copy add
 - Rejected telemetry or fault input preserves last-known-good values and shows rule code/evidence.
 - Page-level read failure keeps last-known data where available, labels it `Last known`, exposes Retry, and announces the error once.
 - Loss of the simulator/stream displays `LIVE MONITORING INTERRUPTED` with disconnect time and marks the entire fleet snapshot last known; the alert rail cannot claim “No open alerts” while monitoring is interrupted.
-- `ERR_POLICY_UNRESOLVED` displays the exact ODD and keeps the node cordoned; no default value or simulated resolution is implied.
+- `ERR_POLICY_UNRESOLVED` displays the exact ODD and preserves the state and cordon result defined for that policy's safe unresolved path; it does not universally force `cordoned=true`. For unresolved ODD-5, the existing cordon value is preserved. No default value or simulated resolution is implied.
 
 ### Degraded
 
