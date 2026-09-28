@@ -1,6 +1,6 @@
 ﻿# GPU Lab Digital Twin
 
-Module 3 of the **Academic AI Compute Fabric — Plan-2**.
+Module 3 of the **Academic AI Compute Fabric**.
 
 ## Team
 
