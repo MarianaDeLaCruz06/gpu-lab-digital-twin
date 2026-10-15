@@ -1,0 +1,19 @@
+# Solu-2 AI Decision Log
+
+Pair attribution: Mariana De La Cruz is Architecture Lead for Phases 0–2. Julian Motta is Peer Reviewer for Phases 0–2. Phase 3 role swap is reserved for a later run.
+
+| ID | Phase | Partner | Persona / BMad Skill | Prompt summary | AI output summary | Human decision | Technical reason | Artifact changed |
+|---|---|---|---|---|---|---|---|---|
+| S2-DL-01 | 0 | Mariana | BMad Architecture | Select three operations spanning ingestion, state transition, and maintenance. | Proposed `ingestHeartbeat`, `transitionNodeState`, and `scheduleMaintenanceDrain` as the minimum cohesive boundary. | ACCEPT | Together they cover ordering/idempotency, reducer explainability, silent/thermal/reboot/flapping behavior, and maintenance races without importing adjacent modules. | `planning/detailed-design/contracts.md` |
+| S2-DL-02 | 0 | Julian | BMad Adversarial Review | Make ID and replay behavior implementable. | Suggested treating every duplicate event as an HTTP error. | MODIFY | Exact identical replay is a successful idempotent acknowledgement (`200`, outcome `DUPLICATE`); only reuse with a different payload is `ERR_IDEMPOTENCY_CONFLICT` (`409`). | `reviews/review-arch-implementability.md`, contracts and OpenAPI |
+| S2-DL-03 | 0 | Mariana | BMad Architecture | Bind the requested Python/FastAPI/PostgreSQL stack to Plan-2. | Identified an apparent conflict with the prior process-local/in-memory baseline. | MODIFY | PostgreSQL is fixed as the Solu-2 adapter/schema target, while NFR-12 durable-history and production-capacity non-claims remain; test adapters may stay process-local behind ports. | `planning/ARCHITECTURE.md` |
+| S2-DL-04 | 1 | Mariana | BMad Architecture | Resolve five-second flapping deterministically without inventing hysteresis. | Considered a numeric stable window. | REJECT | ODD-5/6 are deliberately open. The accepted Plan-2 evidence-only hold yields zero public oscillations and zero flapping alerts while upserting one unresolved-policy diagnostic. | `planning/detailed-design/contracts.md` |
+| S2-DL-05 | 2 | Julian | BMad Edge-Case Hunter | Close maintenance and telemetry races. | Required database uniqueness and conditional writes. | ACCEPT | Unique event IDs, one open alert/active lock per key, and revision-guarded atomic updates physically enforce AD-1/AD-5/AD-7. | SQL schema and `ports-and-adapters.md` |
+
+## Core operation selection and rationale
+
+1. `ingestHeartbeat(nodeId, payload, at)` owns validation, ordering, duplicate classification, stale-event containment, reboot evidence, silent-clock freshness inputs, thermal facts, and atomic ingestion results.
+2. `transitionNodeState(nodeId, signal)` is the sole core-domain reducer entry and owns fixed precedence, deterministic state/cordon outcomes, flapping evidence-only behavior, and structured explanations.
+3. `scheduleMaintenanceDrain(nodeId, window)` owns command idempotency, immediate cordon, active-workload visibility, fresh-post-lock-zero completion, and conflict behavior without scheduling or terminating work.
+
+No contradiction in Plan-2 requires replacing these operations. They intentionally do not build reservation, scheduling, model catalog, inference, or observability capabilities.

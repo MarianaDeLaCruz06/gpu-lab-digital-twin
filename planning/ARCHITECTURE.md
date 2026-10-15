@@ -599,6 +599,31 @@ The prototype cannot create reservations, control jobs, query physical GPUs, or 
 
 None of these deferred values receives a default in the architecture. They do not block the process-local standalone baseline because its safe behavior and non-claims are explicit. When an already-active reason needs unresolved configuration to clear, the reducer holds the existing safe cordoned result with a named explanation. Unclassified raw connectivity evidence cannot activate flapping or mutate cordon until ODD-5 is approved.
 
+## Solu-2 Stack Decisions
+
+This Solu-2 design seed fixes a consistent implementation target for the contracts and red-phase preparation. It does not add production logic or change the reducer-centric hexagonal architecture.
+
+| Concern | Decision |
+|---|---|
+| Language | Python 3.x |
+| Web/API | FastAPI |
+| DTO and validation | Pydantic |
+| Persistence contract | PostgreSQL |
+| Testing | pytest, pytest-asyncio, and hypothesis |
+| Time | `Clock` outbound port with a `FakeClock` simulated driven adapter |
+
+Dependency rules:
+
+- `domain/` contains no direct `datetime.now()` or other wall-clock reads; time is supplied by the `Clock` outbound port at the application boundary.
+- `domain/` contains no direct `random` use. Any generated simulation values belong to simulated driven adapters and must be explicit/replayable.
+- The design has no physical NVIDIA GPU dependency and no direct DCGM, Prometheus, or Kubernetes dependency in `domain/`.
+- All hardware and telemetry interactions cross outbound ports. Development data is entirely simulated.
+- FastAPI, Pydantic transport models, PostgreSQL drivers/ORMs, request objects, database sessions, and network clients do not cross into `domain/`.
+- PostgreSQL is the Solu-2 persistence adapter target for schema and atomicity design. The Module 3 prototype still makes no durable-history, production-capacity, or deployment claim under NFR-12; a process-local test adapter remains permitted behind the same ports.
+- The exact Python/FastAPI/Pydantic/PostgreSQL package versions are intentionally not pinned by this design document and must be resolved at implementation setup.
+
+This section replaces the earlier deferred implementation seed only for language, API framework, DTO validation, persistence contract, tests, and time abstraction. It does not alter AD-1 through AD-8 or authorize physical infrastructure integration.
+
 ## 14. Architecture traceability
 
 | Mandatory behavior | Components/contracts | Invariants |
