@@ -1,6 +1,6 @@
 # Solu-2 AI Decision Log
 
-Pair attribution: Mariana De La Cruz is Architecture Lead for Phases 0–2. Julian Motta is Peer Reviewer for Phases 0–2. Phase 3 role swap is reserved for a later run.
+Pair attribution: Mariana De La Cruz was Architecture Lead and Julian Motta was Peer Reviewer for Phases 0–2. In Phase 3, Julian Motta was Test Lead and Mariana De La Cruz was Reviewer. Both partners jointly reviewed Phase 4 readiness.
 
 | ID | Phase | Partner | Persona / BMad Skill | Prompt summary | AI output summary | Human decision | Technical reason | Artifact changed |
 |---|---|---|---|---|---|---|---|---|

@@ -11,11 +11,11 @@ Phase 3 initial pass used `PENDING` Story IDs. Phase 4 final pass replaced every
 | FR-5 Thermal | Scenario 2 | AD-3, AD-4 | ingest Q; I-H4/I-T2 | HB-THERMAL-001/002 | 2.1 | RED |
 | FR-6 Reboot | Scenario 3 | AD-4, AD-6 | P-H3; I-H5/I-T6 | HB-REBOOT-001 | 2.2 | RED |
 | FR-7 State evaluation | Scenarios 1–4 | AD-4 | transition Q; I-T1–T6 | ST-PRECEDENCE-001, ST-INVALID-001 | 1.3, 2.1, 2.2, 2.3, 3.1, 3.3 | RED |
-| FR-8 Maintenance drain | Scenario 4 Maintenance | AD-1, AD-7, AD-8 | maintenance P/Q; I-M1–M3/M5 | MT-HAPPY-001, MT-CONC-001, MT-STALE-001 | 3.1, 3.2 | RED |
+| FR-8 Maintenance drain | Scenario 4 Maintenance | AD-1, AD-7, AD-8 | maintenance P/Q; I-M1–M3/M5 | MT-HAPPY-001, MT-INVALID-001, MT-CONC-001, MT-STALE-001, MT-EXPLAIN-001 | 3.1, 3.2 | RED |
 | FR-9 Maintenance release | Maintenance Success/Denied | AD-4, AD-7 | I-M4; reducer precedence | ST-PRECEDENCE-001 | 3.3 | RED |
 | FR-10 Flapping | Scenario 4 / stable card | AD-5 | transition Q; I-T4/I-T5 | ST-FLAP-001 | 2.3 | RED (P0) |
 | FR-11 Fleet/node views | Fleet/Node Loading–Denied | AD-4, AD-8 | response DTOs; atomic exposure | HB-FRESH-001, ST-EXPLAIN-001 | 1.1, 4.1 | RED |
-| FR-12 Explainability | All scenarios | AD-3–AD-7 | all Q; I-T3 | ST-EXPLAIN-001 plus explain tests | 4.1 | RED |
+| FR-12 Explainability | All scenarios | AD-3–AD-7 | all Q; I-T3 | ST-EXPLAIN-001, HB-THERMAL-001, HB-REBOOT-001, MT-EXPLAIN-001 | 4.1 | RED |
 | FR-13 Fault injection | Fault Injector / all scenarios | AD-2, AD-3, AD-5–AD-8 | Time clauses and inbound ports | mandatory HB/ST/MT suite | 4.2 | RED |
 | NFR-1 Fleet completeness | Fleet Success/Empty | AD-8 | I-H6 | seed-fleet fixture assertions | 1.1 | PLANNED |
 | NFR-2 Hardware independence | Fault Injector | AD-8 | ports purity | CI dependency scan | 1.1, 4.2 | PLANNED |
@@ -49,3 +49,10 @@ Phase 3 initial pass used `PENDING` Story IDs. Phase 4 final pass replaced every
 - P0 requirement/risk → executable RED test → story: 4/4 (100%).
 - AD-n → executable RED test → story: 8/8 (100%).
 - FR/NFR orphans: 0. Story orphans: 0. Pending Story IDs: 0.
+- Required contract-behavior test orphans: 0; all 18 RED tests map to an FR/NFR, AD, contract clause, or mandatory non-effect.
+
+## Mandatory flapping end-to-end chain
+
+`PRD FR-10 / NFR-8` → `UX Scenario 4 (stable card, no pulse/countdown)` → `AD-5` → `transitionNodeState Q, I-T4, I-T5` → domain enforcement at the `StabilityPolicy` port/reducer guard plus physical alert deduplication at `alerts_one_open_per_reason_uq` → P0 risk `R-01` → executable RED test `ST-FLAP-001` → dedicated Story `2.3`.
+
+The unresolved ODD-5 baseline retains raw evidence, preserves public state/connectivity/cordon, emits zero flapping alerts, and maintains at most one unresolved-policy diagnostic. No hidden hysteresis value is introduced.

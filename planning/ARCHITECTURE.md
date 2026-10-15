@@ -1,8 +1,10 @@
 ---
 title: GPU Lab Digital Twin — Technical Architecture
 status: final
+version: Solu-2 v2
+baseline: Solu-2 v2 planning baseline
 created: 2026-09-26
-updated: 2026-09-26
+updated: 2026-10-15
 module: 3
 tier: Intermediate
 sources:
@@ -623,6 +625,25 @@ Dependency rules:
 - The exact Python/FastAPI/Pydantic/PostgreSQL package versions are intentionally not pinned by this design document and must be resolved at implementation setup.
 
 This section replaces the earlier deferred implementation seed only for language, API framework, DTO validation, persistence contract, tests, and time abstraction. It does not alter AD-1 through AD-8 or authorize physical infrastructure integration.
+
+## Solu-2 Detailed Design Links
+
+This document is the **Solu-2 v2 planning baseline**. Its detailed, test, backlog, and readiness companions are:
+
+- `planning/detailed-design/contracts.md`
+- `planning/detailed-design/ports-and-adapters.md`
+- `planning/detailed-design/schemas/001_gpu_lab_digital_twin_schema.sql`
+- `planning/detailed-design/schemas/dto.py`
+- `planning/detailed-design/schemas/events.md`
+- `planning/detailed-design/schemas/openapi.yaml`
+- `test/test-design.md`
+- `test/atdd/gpu_lab_digital_twin_contracts_test.py`
+- `test/nfr-evidence.md`
+- `test/traceability-matrix.md`
+- `planning/epics.md`
+- `implementation-artifacts/sprint-status.yaml`
+
+These links refine AD-1 through AD-8 without changing their validated behavior or expanding Module 3 scope.
 
 ## 14. Architecture traceability
 
