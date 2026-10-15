@@ -1,0 +1,67 @@
+name: solu2-red-contract-quality-gate
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  schema-and-static-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install pydantic pytest pytest-asyncio hypothesis coverage pyyaml jsonschema
+      - name: Parse DTO and OpenAPI schemas
+        run: |
+          python -m py_compile planning/detailed-design/schemas/dto.py test/fixtures/*.py test/atdd/*.py
+          python -c "import yaml; yaml.safe_load(open('planning/detailed-design/schemas/openapi.yaml', encoding='utf-8'))"
+      - name: Reject hard sleeps and forbidden production dependencies
+        run: |
+          ! grep -R -n -E '(^|[^A-Za-z])time\.sleep\(|asyncio\.sleep\(' test
+          ! grep -R -n -E 'import (pynvml|kubernetes|prometheus_client)|from (pynvml|kubernetes|prometheus_client)' test
+      - name: Collect executable contracts
+        run: pytest --collect-only -q test/atdd/gpu_lab_digital_twin_contracts_test.py
+      - name: Check P0 contract IDs are present
+        run: |
+          for id in ST-FLAP-001 HB-ORDER-001 HB-IDEM-001 MT-CONC-001; do
+            grep -qi "${id//-/_}" test/atdd/gpu_lab_digital_twin_contracts_test.py
+          done
+
+  red-phase-verification:
+    runs-on: ubuntu-latest
+    needs: schema-and-static-validation
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install pytest pytest-asyncio pydantic
+      - name: Execute RED contracts and verify the failure reason
+        shell: bash
+        run: |
+          set +e
+          pytest -q test/atdd/gpu_lab_digital_twin_contracts_test.py --junitxml=red-contracts.xml 2>&1 | tee red-contracts.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q 'NotImplementedError: RED:' red-contracts.txt
+          ! grep -q 'AssertionError' red-contracts.txt
+          ! grep -q 'fixture .* not found' red-contracts.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: red-contract-evidence
+          path: |
+            red-contracts.xml
+            red-contracts.txt
+
+  future-implementation-coverage:
+    if: ${{ vars.PRODUCTION_LOGIC_PRESENT == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install pytest pytest-cov pytest-asyncio hypothesis
+      - run: pytest --cov=domain --cov-report=xml --cov-fail-under=90
+      - uses: actions/upload-artifact@v4
+        with: {name: domain-coverage, path: coverage.xml}

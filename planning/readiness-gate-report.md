@@ -109,3 +109,41 @@ The required planning package is complete and mutually consistent. All four mand
 | Review findings fully triaged | **YES** |
 | Implementation recommendation | **Proceed with the standalone simulated Module 3 baseline, preserving every documented safe hold, non-claim, and scope boundary.** |
 | Human/architect sign-off | **GRANTED for the documented standalone prototype baseline** |
+
+---
+
+## Solu-2 Phase 4 Readiness Addendum — 2026-10-15
+
+Reviewers: Mariana De La Cruz and Julian Motta. Scope: Module 3 Phase 3–4 artifacts only. Phases 0–2 were not reopened.
+
+### Gate coverage
+
+| Check | Result | Evidence |
+|---|---|---|
+| Every PRD FR/NFR has at least one story | PASS | `test/traceability-matrix.md`: 13 FR and 13 NFR rows, 0 orphans |
+| Every story traces to a real requirement | PASS | 12/12 story Traceability sections |
+| UX Loading/Empty/Error/Success/Denied has contract + DTO coverage | PASS | Stories 1.1/4.1; ErrorBody, operation response DTOs, atomic fleet-version behavior |
+| Every AD-n has a story and RED test | PASS | AD-1–AD-8 table: 8/8 |
+| No forward dependencies | PASS | 12 dependency sections; 0 forward dependency references |
+| No cross-artifact contradiction | PASS | Flapping remains AD-5 evidence-only; ODD-3/4/5/6/7 remain safe holds |
+| Reviews triaged and accepted fixes visible | PASS | Phase 0–3 reviews; 0 blocking findings |
+| Production logic absent | PASS | only fixtures, interface stubs, executable RED tests, plans, and schemas |
+| `bmad-build` / `bmad-build-auto` absent | PASS | neither workflow executed |
+
+### First legitimate run
+
+**Verdict: PASS.** Structural gate output was `stories=12`, `binding_sections=12`, `dependency_sections=12`, `forward_dependency_phrases=0`. The installed sprint generator reported `ok=true`, `epics=4`, `stories=12`, `warnings=[]`, `illegal=[]`, and `in_sync=true`, and wrote `implementation-artifacts/sprint-status.yaml`.
+
+### Mandatory gate drill
+
+1. **Intentionally broken link:** removed the `Binding Invariants` section from Story 2.3, “Contain five-second connectivity flapping.” This was the only deliberate break.
+2. **Gate verdict:** FAIL.
+3. **Exact defect reported:** `Story 2.3 missing Binding Invariants traceability link`.
+4. **Corrective skill:** `bmad-create-epics-and-stories` owns restoration of the missing story section; `bmad-testarch-trace` verifies the restored AD-5/test/story chain.
+5. **Restoration:** restored the original AD-5 evidence-only binding text with no other backlog change.
+6. **Final rerun:** PASS. The complete required-section check printed `READINESS_STRUCTURE_PASS`; sprint generation again reported 4 epics, 12 stories, no warnings, no illegal entries, no dropped orphans, and `in_sync=true`.
+7. **Approximate elapsed time:** under 2 minutes from first PASS through deliberate failure, restoration, and final PASS.
+
+### Solu-2 final decision
+
+**PASS.** P0 requirement → RED test → story coverage is 100%; AD-n → RED test → story coverage is 100%; blocking findings are 0. The generated sprint status contains 4 backlog epics, 12 backlog stories, and 4 optional retrospectives. Phase 5 and repository tagging were not started.
