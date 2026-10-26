@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     fleet_fixture_path: Path = Field(default=_PROJECT_ROOT / "fixtures" / "fleet.json")
     policy_version: str = Field(default="impl1-v1", min_length=1)
     log_level: str = Field(default="INFO")
+    liveness_scan_seconds: float = Field(default=5.0, ge=0, allow_inf_nan=False)
 
     @field_validator("fleet_fixture_path")
     @classmethod
@@ -25,6 +26,14 @@ class Settings(BaseSettings):
         if not path.is_file():
             raise ValueError(f"fleet fixture not found: {path}")
         return path
+
+    @field_validator("liveness_scan_seconds")
+    @classmethod
+    def _scan_disabled_or_not_busy(cls, seconds: float) -> float:
+        # Each scan holds the shared write lock; a sub-100 ms period would starve heartbeat ingestion.
+        if 0 < seconds < 0.1:
+            raise ValueError("liveness_scan_seconds must be 0 (disabled) or at least 0.1")
+        return seconds
 
     @field_validator("log_level")
     @classmethod

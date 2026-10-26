@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from gpu_lab_twin.domain.errors import DomainError, ErrorCode
 from gpu_lab_twin.domain.fleet import NodeSpec
@@ -12,6 +12,21 @@ from gpu_lab_twin.domain.node import NodeSnapshot
 from gpu_lab_twin.domain.node_state import DriverHealth, ReasonCode
 
 RECOVERY_POLICY_ID = "ODD-3"
+SILENCE_INTERVALS = 3
+
+
+def is_silent(last_accepted_receive_at: datetime | None, evaluation_at: datetime, interval_ms: int) -> bool:
+    """AD-2: silent only when strictly more than three configured intervals passed since the last accepted receive.
+
+    A node that never reported is not silent (it stays UNKNOWN); equality at the boundary is not silent.
+    """
+    if last_accepted_receive_at is None:
+        return False
+    return evaluation_at - last_accepted_receive_at > timedelta(milliseconds=SILENCE_INTERVALS * interval_ms)
+
+
+def missed_intervals(last_accepted_receive_at: datetime, evaluation_at: datetime, interval_ms: int) -> float:
+    return (evaluation_at - last_accepted_receive_at) / timedelta(milliseconds=interval_ms)
 
 
 def validate_heartbeat(spec: NodeSpec, payload: HeartbeatPayload, at: datetime) -> None:

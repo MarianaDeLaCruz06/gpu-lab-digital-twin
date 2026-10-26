@@ -23,7 +23,14 @@ from gpu_lab_twin.adapters.db.models import (
 from gpu_lab_twin.domain.errors import DomainError, ErrorCode
 from gpu_lab_twin.domain.fleet import FleetInventory
 from gpu_lab_twin.domain.node import GpuReading, NodeSnapshot, NodeView
-from gpu_lab_twin.ports.outbound.node_repository import HeartbeatCommit, RecordedHeartbeat
+from gpu_lab_twin.ports.outbound.node_repository import (
+    AuditRecord,
+    HeartbeatCommit,
+    ProjectionUpdate,
+    RecordedHeartbeat,
+    TransitionCommit,
+    TransitionRecord,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +97,12 @@ class SqlNodeRepository:
                 )
             )
             evidence = {reason: tuple(explanation.get("evidenceIds", ())) for reason, explanation in open_alerts}
-            return _snapshot(row, evidence)
+            current_event = session.scalar(
+                select(TelemetrySnapshotRow.event_id).where(
+                    TelemetrySnapshotRow.node_id == node_id, TelemetrySnapshotRow.is_current
+                )
+            )
+            return _snapshot(row, evidence, str(current_event) if current_event else None)
 
     def find_heartbeat(self, event_id: UUID) -> RecordedHeartbeat | None:
         with self._session_factory() as session:
@@ -108,16 +120,34 @@ class SqlNodeRepository:
     def commit_heartbeat(self, commit: HeartbeatCommit) -> int:
         try:
             with self._session_factory.begin() as session:
-                revision = self._compare_and_set(session, commit)
+                node_id = commit.projection.node_id
+                revision = self._compare_and_set(session, commit.projection, commit.at)
                 self._append_telemetry(session, commit)
                 if commit.transition is not None:
-                    self._append_transition(session, commit, revision)
+                    self._append_transition(session, node_id, commit.transition, revision)
+                self._close_alerts(session, node_id, commit.closed_alert_reasons, commit.at)
                 for reason in commit.alert_reasons:
-                    self._upsert_open_alert(session, commit.projection.node_id, reason, commit.at, commit.explanation)
-                self._append_audit(session, commit)
+                    self._upsert_open_alert(session, node_id, reason, commit.at, commit.explanation)
+                self._append_audit(session, node_id, commit.audit, commit.at)
                 return revision
         except IntegrityError as exc:
             raise _integrity_error(exc, commit) from exc
+
+    def commit_transition(self, commit: TransitionCommit) -> int:
+        try:
+            with self._session_factory.begin() as session:
+                node_id = commit.projection.node_id
+                revision = self._compare_and_set(session, commit.projection, commit.at)
+                self._append_transition(session, node_id, commit.transition, revision)
+                for reason in commit.alert_reasons:
+                    self._upsert_open_alert(session, node_id, reason, commit.at, commit.explanation)
+                self._append_audit(session, node_id, commit.audit, commit.at)
+                return revision
+        except IntegrityError as exc:
+            logger.error("integrity error for transition %s: %s", commit.audit.event_id, exc.orig)
+            raise DomainError(
+                ErrorCode.ERR_INGRESS_UNAVAILABLE, "The evaluation was not committed; storage rejected the write."
+            ) from exc
 
     def list_fleet(self) -> tuple[NodeView, ...]:
         with self._session_factory() as session:
@@ -168,8 +198,7 @@ class SqlNodeRepository:
         return tuple(views)
 
     @staticmethod
-    def _compare_and_set(session: Session, commit: HeartbeatCommit) -> int:
-        projection = commit.projection
+    def _compare_and_set(session: Session, projection: ProjectionUpdate, at: datetime) -> int:
         revision = session.scalar(
             update(NodeRow)
             .where(NodeRow.node_id == projection.node_id, NodeRow.revision == projection.expected_revision)
@@ -182,7 +211,7 @@ class SqlNodeRepository:
                 last_accepted_event_at=projection.last_accepted_event_at,
                 last_accepted_receive_at=projection.last_accepted_receive_at,
                 revision=NodeRow.revision + 1,
-                updated_at=commit.at,
+                updated_at=at,
             )
             .returning(NodeRow.revision)
         )
@@ -242,14 +271,12 @@ class SqlNodeRepository:
         )
 
     @staticmethod
-    def _append_transition(session: Session, commit: HeartbeatCommit, revision: int) -> None:
-        transition = commit.transition
-        assert transition is not None
+    def _append_transition(session: Session, node_id: str, transition: TransitionRecord, revision: int) -> None:
         session.add(
             NodeStateHistoryRow(
-                transition_id=_derived_id("transition", transition.source_event_id, commit.projection.node_id),
+                transition_id=_derived_id("transition", transition.source_event_id, node_id),
                 source_event_id=transition.source_event_id,
-                node_id=commit.projection.node_id,
+                node_id=node_id,
                 prior_state=transition.prior_state,
                 result_state=transition.result_state,
                 prior_cordoned=transition.prior_cordoned,
@@ -261,6 +288,16 @@ class SqlNodeRepository:
                 occurred_at=transition.occurred_at,
                 schema_version=SCHEMA_VERSION,
             )
+        )
+
+    @staticmethod
+    def _close_alerts(session: Session, node_id: str, reasons: tuple[str, ...], at: datetime) -> None:
+        if not reasons:
+            return
+        session.execute(
+            update(AlertRow)
+            .where(AlertRow.node_id == node_id, AlertRow.reason_code.in_(reasons), AlertRow.closed_at.is_(None))
+            .values(closed_at=at, updated_at=at)
         )
 
     @staticmethod
@@ -291,15 +328,14 @@ class SqlNodeRepository:
         )
 
     @staticmethod
-    def _append_audit(session: Session, commit: HeartbeatCommit) -> None:
-        audit = commit.audit
+    def _append_audit(session: Session, node_id: str, audit: AuditRecord, at: datetime) -> None:
         session.add(
             AuditEventRow(
                 audit_id=_derived_id("audit", audit.event_id),
                 event_id=audit.event_id,
-                node_id=commit.projection.node_id,
+                node_id=node_id,
                 event_type=audit.event_type,
-                occurred_at=commit.at,
+                occurred_at=at,
                 schema_version=SCHEMA_VERSION,
                 rule_ids=list(audit.rule_ids),
                 evidence_ids=list(audit.evidence_ids),
@@ -308,7 +344,11 @@ class SqlNodeRepository:
         )
 
 
-def _snapshot(row: NodeRow, reason_evidence: dict[str, tuple[str, ...]] | None = None) -> NodeSnapshot:
+def _snapshot(
+    row: NodeRow,
+    reason_evidence: dict[str, tuple[str, ...]] | None = None,
+    current_heartbeat_event_id: str | None = None,
+) -> NodeSnapshot:
     return NodeSnapshot(
         node_id=row.node_id,
         kind=row.kind,
@@ -323,6 +363,7 @@ def _snapshot(row: NodeRow, reason_evidence: dict[str, tuple[str, ...]] | None =
         last_accepted_receive_at=row.last_accepted_receive_at,
         active_reason_codes=tuple(row.active_reason_codes or ()),
         reason_evidence=reason_evidence or {},
+        current_heartbeat_event_id=current_heartbeat_event_id,
     )
 
 

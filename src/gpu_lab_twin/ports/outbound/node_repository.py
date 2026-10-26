@@ -69,6 +69,19 @@ class HeartbeatCommit:
     alert_reasons: tuple[str, ...]
     audit: AuditRecord
     at: datetime
+    closed_alert_reasons: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class TransitionCommit:
+    """A reducer decision triggered by something other than a heartbeat (e.g. a clock evaluation)."""
+
+    projection: ProjectionUpdate
+    transition: TransitionRecord
+    explanation: Mapping[str, Any]
+    alert_reasons: tuple[str, ...]
+    audit: AuditRecord
+    at: datetime
 
 
 class NodeRepository(Protocol):
@@ -91,6 +104,10 @@ class NodeRepository(Protocol):
 
         Raises ``DomainError(ERR_REVISION_CONFLICT)`` if the revision moved, and leaves nothing written.
         """
+        ...
+
+    def commit_transition(self, commit: TransitionCommit) -> int:
+        """Apply atomically and return the new revision; ``ERR_REVISION_CONFLICT`` if the revision moved."""
         ...
 
     def list_fleet(self) -> tuple[NodeView, ...]: ...

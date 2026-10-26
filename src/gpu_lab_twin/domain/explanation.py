@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from typing import Any
 
 from gpu_lab_twin.domain.heartbeat import HeartbeatPayload
-from gpu_lab_twin.domain.node_state import Decision, NodeState, ReasonCode
+from gpu_lab_twin.domain.heartbeat_policy import RECOVERY_POLICY_ID
+from gpu_lab_twin.domain.node_state import DEGRADATION_REASONS, Decision, NodeState, ReasonCode
 
 
 class ExplanationIncomplete(ValueError):
@@ -79,8 +81,10 @@ def explain_heartbeat_decision(
     thresholds: dict[str, Any] = {}
     rule_ids = list(decision.rule_ids)
 
-    if decision.reason_codes:
+    if DEGRADATION_REASONS & set(decision.reason_codes):
         thresholds["driverHealth"] = {"operator": "==", "value": "HEALTHY"}
+    if ReasonCode.RECOVERY_PENDING in decision.reason_codes:
+        thresholds["recoveryPolicy"] = {"policyId": RECOVERY_POLICY_ID, "status": "unresolved"}
     evidence_ids = [str(payload.event_id)]
     if retained_reasons:
         rule_ids.append(UNRESOLVED_CLEAR_RULE)
@@ -115,3 +119,57 @@ def _summary(node_id: str, decision: Decision, retained: frozenset[ReasonCode]) 
     if retained:
         text += f" {', '.join(sorted(retained))} retained: no approved clear rule exists yet."
     return text
+
+
+def explain_silence(
+    *,
+    node_id: str,
+    prior_state: NodeState,
+    decision: Decision,
+    last_accepted_receive_at: datetime,
+    evaluation_at: datetime,
+    heartbeat_interval_ms: int,
+    missed_intervals: float,
+    evidence_ids: tuple[str, ...],
+    retained_evidence: Mapping[ReasonCode, tuple[str, ...]],
+    policy_version: str,
+) -> Explanation:
+    """Explain an AD-2 silence transition with the exact comparison the rule made.
+
+    Lower-precedence reasons stay active under OFFLINE; they and the evidence that activated them are cited too.
+    """
+    elapsed = evaluation_at - last_accepted_receive_at
+    elapsed_seconds = elapsed.total_seconds()
+    interval_seconds = heartbeat_interval_ms / 1000
+    observed: dict[str, Any] = {
+        "lastAcceptedReceiveAt": last_accepted_receive_at.isoformat(),
+        "evaluationAt": evaluation_at.isoformat(),
+        "elapsedSeconds": elapsed_seconds,
+        "elapsedMicroseconds": elapsed // timedelta(microseconds=1),
+        "heartbeatIntervalMs": heartbeat_interval_ms,
+        "missedIntervals": missed_intervals,
+    }
+    all_evidence = list(evidence_ids)
+    summary_tail = ""
+    if retained_evidence:
+        observed["retainedReasonEvidence"] = {
+            reason.value: list(ids) for reason, ids in sorted(retained_evidence.items())
+        }
+        for ids in retained_evidence.values():
+            all_evidence.extend(e for e in ids if e not in all_evidence)
+        summary_tail = f" Still active: {', '.join(sorted(r.value for r in retained_evidence))}."
+    return Explanation(
+        rule_ids=decision.rule_ids,
+        observed_values=observed,
+        thresholds={"missedIntervals": {"operator": ">", "value": 3}},
+        evidence_ids=tuple(all_evidence),
+        policy_version=policy_version,
+        prior_state=prior_state,
+        result_state=decision.state,
+        expected_state=decision.state,
+        summary=(
+            f"{node_id} is {decision.state} and cordoned from new work because elapsed silence "
+            f"{elapsed_seconds:g} s was greater than 3 x interval {interval_seconds:g} s "
+            f"({missed_intervals:g} missed intervals).{summary_tail}"
+        ),
+    )

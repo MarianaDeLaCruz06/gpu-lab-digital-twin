@@ -34,7 +34,7 @@ if not TEST_DATABASE_URL.startswith("sqlite") and not _test_database.endswith("_
 
 @pytest.fixture
 def settings() -> Settings:
-    return Settings(database_url=TEST_DATABASE_URL, policy_version="test-policy-v1")
+    return Settings(database_url=TEST_DATABASE_URL, policy_version="test-policy-v1", liveness_scan_seconds=0)
 
 
 @pytest.fixture

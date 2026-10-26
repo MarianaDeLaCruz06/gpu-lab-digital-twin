@@ -26,6 +26,8 @@ class NodeSnapshot:
     active_reason_codes: tuple[str, ...]
     # Evidence IDs that last observed each active reason (taken from its open alert episode).
     reason_evidence: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    # eventId of the heartbeat behind the current telemetry snapshot, if any.
+    current_heartbeat_event_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

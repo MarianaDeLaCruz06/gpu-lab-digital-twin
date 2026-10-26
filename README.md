@@ -74,6 +74,8 @@ docs/                 PRD, active contracts, sprint-status.yaml, AI decision log
 
 **Single-process prototype.** Heartbeat writes are serialized by one in-process lock that also assigns the global `ingest_offset` (AD-1). Run exactly one service process (`uvicorn` without `--workers`, one container). Revision compare-and-swap and unique indexes still reject a second writer rather than corrupting state, but a multi-process deployment would need a database-level sequencer. This matches the PRD's process-local baseline (NFR-12).
 
+**Silent-node detection.** An in-process scan runs every `GPU_TWIN_LIVENESS_SCAN_SECONDS` (default 5 s; `0` disables it, and values must be ≥ 0.1 s). A node goes `OFFLINE` only once *strictly more* than 3 heartbeat intervals have passed since its last accepted heartbeat. With the 10 s fixture interval, that boundary is 30 s, and the scan period adds up to one period of latency, so OFFLINE appears between 30 s and 35 s after the last heartbeat.
+
 Every error response uses the contract `ErrorBody` (`code`, `message`, `retryable`, `details`); no stack trace reaches a client.
 
 ## Project documents

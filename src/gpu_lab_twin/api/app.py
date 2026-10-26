@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -9,6 +11,7 @@ from fastapi import FastAPI
 from gpu_lab_twin import __version__
 from gpu_lab_twin.api.errors import install_error_handlers
 from gpu_lab_twin.api.routes import health, nodes, telemetry
+from gpu_lab_twin.api.scheduler import run_periodically
 from gpu_lab_twin.bootstrap import Container, build_container
 from gpu_lab_twin.config.settings import get_settings
 
@@ -25,7 +28,16 @@ def create_app(container: Container | None = None) -> FastAPI:
         added = resolved.nodes.seed_inventory(resolved.inventory)
         logger.info("fleet inventory ready: %d nodes (%d newly seeded)", len(resolved.inventory.nodes), added)
         app.state.container = resolved
+        scan = None
+        if resolved.settings.liveness_scan_seconds > 0:
+            scan = asyncio.create_task(
+                run_periodically(resolved.liveness.evaluate_fleet_liveness, resolved.settings.liveness_scan_seconds)
+            )
         yield
+        if scan is not None:
+            scan.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await scan
         if container is None:
             resolved.engine.dispose()
 

@@ -44,7 +44,11 @@ def test_state_follows_fixed_precedence_and_non_healthy_is_cordoned(
     decision = evaluate(NodeFacts(has_current_heartbeat=has_heartbeat, reasons=reasons))
 
     degradations = reasons & DEGRADATION_REASONS
-    if degradations:
+    if ReasonCode.SILENT in reasons:
+        expected_state, expected_rules = NodeState.OFFLINE, ("ERR_SILENT",)
+    elif ReasonCode.RECOVERY_PENDING in reasons:
+        expected_state, expected_rules = NodeState.RECOVERING, ("RECOVERY_PENDING",)
+    elif degradations:
         expected_state, expected_rules = NodeState.DEGRADED, tuple(sorted(degradations))
     elif has_heartbeat:
         expected_state, expected_rules = NodeState.HEALTHY, (RULE_HEALTHY,)
@@ -54,3 +58,16 @@ def test_state_follows_fixed_precedence_and_non_healthy_is_cordoned(
     assert (decision.state, decision.rule_ids) == (expected_state, expected_rules)
     assert decision.reason_codes == tuple(sorted(reasons))
     assert decision.cordoned is (decision.state is not NodeState.HEALTHY)
+
+
+def test_silence_outranks_recovery_and_degradation_but_keeps_them_as_reasons() -> None:
+    reasons = frozenset({ReasonCode.SILENT, ReasonCode.RECOVERY_PENDING, ReasonCode.DRIVER_UNHEALTHY})
+    decision = evaluate(NodeFacts(has_current_heartbeat=False, reasons=reasons))
+    assert (decision.state, decision.cordoned, decision.rule_ids) == (NodeState.OFFLINE, True, ("ERR_SILENT",))
+    assert set(decision.reason_codes) == reasons
+
+
+def test_recovery_outranks_degradation() -> None:
+    reasons = frozenset({ReasonCode.RECOVERY_PENDING, ReasonCode.DRIVER_HEALTH_UNKNOWN})
+    decision = evaluate(NodeFacts(has_current_heartbeat=True, reasons=reasons))
+    assert (decision.state, decision.cordoned) == (NodeState.RECOVERING, True)

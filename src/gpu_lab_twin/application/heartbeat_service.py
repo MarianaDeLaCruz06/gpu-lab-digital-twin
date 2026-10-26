@@ -79,6 +79,12 @@ class HeartbeatService:
 
             prior_reasons = frozenset(ReasonCode(code) for code in node.active_reason_codes)
             current_reasons = reasons_from(payload)
+            closed: tuple[ReasonCode, ...] = ()
+            if ReasonCode.SILENT in prior_reasons:
+                # Telemetry returned after OFFLINE: silence is over, but recovery needs ODD-3 evidence (I-T6).
+                prior_reasons -= {ReasonCode.SILENT}
+                current_reasons |= {ReasonCode.RECOVERY_PENDING}
+                closed = (ReasonCode.SILENT,)
             retained = prior_reasons - current_reasons
             decision = evaluate(NodeFacts(has_current_heartbeat=True, reasons=prior_reasons | current_reasons))
             explanation = explain_heartbeat_decision(
@@ -102,7 +108,7 @@ class HeartbeatService:
             )
             observed = tuple(reason for reason in decision.reason_codes if reason in current_reasons)
             self._nodes.commit_heartbeat(
-                _commit(node, payload, payload_hash, decision, observed, explanation, result, at)
+                _commit(node, payload, payload_hash, decision, observed, closed, explanation, result, at)
             )
             return result
 
@@ -113,6 +119,7 @@ def _commit(
     payload_hash: str,
     decision: Decision,
     observed_reasons: tuple[ReasonCode, ...],
+    closed_reasons: tuple[ReasonCode, ...],
     explanation: Mapping[str, Any],
     result: HeartbeatResult,
     at: datetime,
@@ -150,6 +157,7 @@ def _commit(
         transition=transition if transitioned else None,
         # Only reasons this heartbeat re-observed refresh their episode; retained ones are not new evidence.
         alert_reasons=observed_reasons,
+        closed_alert_reasons=closed_reasons,
         audit=AuditRecord(
             event_id=payload.event_id,
             event_type="HeartbeatApplied",

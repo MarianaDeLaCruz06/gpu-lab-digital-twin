@@ -151,6 +151,7 @@ def test_degraded_driver_cordons_and_opens_one_alert(client: TestClient, contain
 
     assert (body["state"], body["cordoned"]) == ("DEGRADED", True)
     assert body["explanation"]["ruleIds"] == [rule]
+    assert body["explanation"]["thresholds"] == {"driverHealth": {"operator": "==", "value": "HEALTHY"}}
     with container.engine.connect() as connection:
         alerts = connection.execute(select(AlertRow).where(AlertRow.node_id == "ws-gpu-06")).all()
     assert [(a.reason_code, a.update_count, a.closed_at) for a in alerts] == [(rule, 1, None)]

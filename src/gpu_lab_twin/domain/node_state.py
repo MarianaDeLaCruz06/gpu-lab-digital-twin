@@ -34,6 +34,8 @@ class DriverHealth(StrEnum):
 class ReasonCode(StrEnum):
     """Active safety reasons; each doubles as the rule ID that activated it."""
 
+    SILENT = "ERR_SILENT"
+    RECOVERY_PENDING = "RECOVERY_PENDING"
     DRIVER_UNHEALTHY = "ERR_DRIVER_UNHEALTHY"
     DRIVER_HEALTH_UNKNOWN = "ERR_DRIVER_HEALTH_UNKNOWN"
 
@@ -64,13 +66,18 @@ def evaluate(facts: NodeFacts) -> Decision:
     """Select exactly one state by the fixed precedence of AD-4.
 
     Full order: DRAINING > MAINTENANCE > OFFLINE > RECOVERING > DEGRADED > HEALTHY > UNKNOWN.
-    Branches for maintenance, silence and recovery are added by the stories that own them.
+    Maintenance branches are added by the stories that own them (Epic 3).
+    Lower-precedence reasons stay in ``reason_codes``; they never launch a competing transition.
     """
     reasons = tuple(sorted(facts.reasons))
     degradations = tuple(reason for reason in reasons if reason in DEGRADATION_REASONS)
 
-    if degradations:
-        state, rule_ids = NodeState.DEGRADED, tuple(degradations)
+    if ReasonCode.SILENT in facts.reasons:
+        state, rule_ids = NodeState.OFFLINE, (ReasonCode.SILENT.value,)
+    elif ReasonCode.RECOVERY_PENDING in facts.reasons:
+        state, rule_ids = NodeState.RECOVERING, (ReasonCode.RECOVERY_PENDING.value,)
+    elif degradations:
+        state, rule_ids = NodeState.DEGRADED, tuple(reason.value for reason in degradations)
     elif facts.has_current_heartbeat:
         state, rule_ids = NodeState.HEALTHY, (RULE_HEALTHY,)
     else:
