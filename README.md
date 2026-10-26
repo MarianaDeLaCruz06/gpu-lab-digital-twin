@@ -1,6 +1,6 @@
 ﻿# GPU Lab Digital Twin
 
-Module 3 of the **Academic AI Compute Fabric** — a standalone, hardware-agnostic digital twin of the university GPU lab: 31 workstations with one 24 GB GPU each and one server with two 48 GB GPUs (32 nodes, 33 GPUs, 840 GB VRAM). All telemetry is simulated; no NVIDIA hardware, CUDA, or other team's module is required.
+Module 3 of the **Academic AI Compute Fabric** a standalone, hardware-agnostic digital twin of the university GPU lab: 31 workstations with one 24 GB GPU each and one server with two 48 GB GPUs (32 nodes, 33 GPUs, 840 GB VRAM). All telemetry is simulated; no NVIDIA hardware, CUDA, or other team's module is required.
 
 **Team:** Mariana De La Cruz · Julian Motta
 
@@ -31,7 +31,7 @@ GPU_TWIN_TEST_DATABASE_URL=postgresql+psycopg://twin:twin@localhost:5433/gpu_lab
 docker compose up --build
 ```
 
-- API: http://localhost:8000 — interactive docs at http://localhost:8000/docs
+- API: http://localhost:8000 - interactive docs at http://localhost:8000/docs
 - `GET /health` (liveness) and `GET /ready` (database reachable and the canonical 32-node fleet seeded)
 - PostgreSQL is exposed on `localhost:5433` (user/password/db: `twin`/`twin`/`gpu_lab_twin`)
 
