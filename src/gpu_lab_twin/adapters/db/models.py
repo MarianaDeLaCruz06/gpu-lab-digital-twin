@@ -76,7 +76,7 @@ class NodeRow(Base):
     storage_capacity_gb: Mapped[float] = mapped_column(Numeric(12, 3, asdecimal=False), nullable=False)
     last_accepted_event_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
     last_accepted_receive_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
-    active_reason_codes: Mapped[list[str]] = mapped_column(TextArray, nullable=False, default=list)
+    active_reason_codes: Mapped[list[str]] = mapped_column(TextArray, nullable=False, server_default=text("'{}'"))
     created_at: Mapped[datetime] = _created_at()
     updated_at: Mapped[datetime] = _created_at()
 
