@@ -33,24 +33,25 @@
 # - Full Ceremony stories: 1-1 (task annex 3.1 heartbeat ingestion),
 #   1-3 (annex 3.2 silent node -> OFFLINE), 2-1 (annex 3.3 thermal cordon).
 # - 'review' is BMad's name for the task's 'ready-for-review' status.
+# - 10-26-2026: 1-1, 1-3 and 2-1 approved by Mariana De La Cruz (docs/review-checklist-impl1.md) -> done.
 # - Concern: epics.md lists 1-2 as a prerequisite of 1-3. 1-2 stays backlog;
 #   1-3 depends only on last_accepted_receive_at written by 1-1, and stale or
 #   out-of-order heartbeat containment remains a documented gap until 1-2.
 generated: 10-15-2026 16:02
-last_updated: 10-26-2026 00:40
+last_updated: 10-26-2026 10:00
 project: gpu-lab-digital-twin
 project_key: NOKEY
 tracking_system: file-system
 story_location: docs
 development_status:
   epic-1: in-progress
-  1-1-see-the-complete-simulated-fleet: review
+  1-1-see-the-complete-simulated-fleet: done
   1-2-keep-telemetry-ordered-and-exactly-once: backlog
-  1-3-detect-silence-at-the-exact-boundary: review
+  1-3-detect-silence-at-the-exact-boundary: done
   epic-1-retrospective: optional
 
   epic-2: in-progress
-  2-1-cordon-an-overheating-workstation: review
+  2-1-cordon-an-overheating-workstation: done
   2-2-explain-workstation-reboot-recovery: backlog
   2-3-contain-five-second-connectivity-flapping: backlog
   epic-2-retrospective: optional

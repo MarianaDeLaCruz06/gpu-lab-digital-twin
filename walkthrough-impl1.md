@@ -135,7 +135,7 @@ fleet nodeCount: 32
 
 ### BMad traceability
 
-- `docs/sprint-status.yaml` holds Impl-1's commitment comment and validates with `sprint_plan.py validate`. The three stories went `backlog → ready-for-dev → in-progress → review`, the BMad name for the task's "ready-for-review", in separate commits.
+- `docs/sprint-status.yaml` holds Impl-1's commitment comment and validates with `sprint_plan.py validate`. The three stories went `backlog → ready-for-dev → in-progress → review` (the BMad name for the task's "ready-for-review") in separate commits, then `→ done` after Mariana's review (`docs/review-checklist-impl1.md`).
 - Each story spec records its approved decisions, Implementation Notes and the full Review Triage Log (one row per reviewer finding with verdict and evidence):
   - `docs/spec-1-1-see-the-complete-simulated-fleet.md`
   - `docs/spec-1-3-detect-silence-at-the-exact-boundary.md`
