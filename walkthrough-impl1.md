@@ -2,7 +2,7 @@
 
 **Team:** Mariana De La Cruz · Julian Motta  
 **Scope:** foundation scaffold and the three core stories of task annex Module 3, built with the BMad Method Full Ceremony (`bmad-sprint-planning` → `bmad-build` per story with the Amelia dev persona and three independent reviewers).  
-**Result:** 126 automated tests pass on SQLite and PostgreSQL 16 (0 skipped, 96% branch coverage). ruff is clean. `docker compose up` was verified end to end on PostgreSQL 17.
+**Result:** 130 automated tests pass on SQLite (0 failed, 0 skipped). Ruff lint and formatting checks are clean. The pre-remediation 126-test suite also passed on PostgreSQL 16; the compose stack was verified end to end on PostgreSQL 17.
 
 ## 1. Annex stories → team contract
 
@@ -58,7 +58,7 @@ migrations/          Alembic 0001 — mirrors docs/contracts/schema.sql for the 
   - `GET /v1/nodes` returns 32 summaries in inventory order. Missing telemetry is `null`, never 0, and the endpoint fails closed with 503 if the store diverges.
 - **Database:** an accepted heartbeat writes, in one transaction:
   - a revision-CAS update of `nodes`;
-  - a `telemetry_snapshots` row (unique `event_id`, SHA-256 `payload_hash`, global `ingest_offset`, one `is_current` per node) plus its `telemetry_gpu_samples`;
+  - a `telemetry_snapshots` row (unique `event_id`, SHA-256 `payload_hash`, global `ingest_offset`, one `is_current` per node) plus its `telemetry_gpu_samples`, carrying the actual `APPLIED`, `LATE_IGNORED`, or `BOOT_CHANGE_DETECTED` disposition;
   - `node_state_history` only when state or cordon changes;
   - an `alerts` upsert for each reason re-observed by this heartbeat;
   - an `audit_events` row holding the recorded response for idempotent replay.
@@ -66,8 +66,8 @@ migrations/          Alembic 0001 — mirrors docs/contracts/schema.sql for the 
   - Validation is all-or-nothing: exact GPU membership, capacity ranges, finite values, and receive time not later than the server clock.
   - Driver `UNHEALTHY`/`UNKNOWN` sets `DEGRADED` + cordon.
   - A degradation reason is retained until an approved clear rule exists.
-  - A boot change fails closed until Story 2.2.
-- **Tests:** `tests/integration/test_story_1_1_heartbeat_ingestion.py` (17 functions, 27 cases), `test_fleet_view.py` (4), `test_revision_cas.py` (1), `tests/unit/test_heartbeat_policy.py` (16 cases), `test_node_state_reducer.py` (7 cases). Every rejection asserts zero side effects on rows and revisions.
+  - Older/non-increasing telemetry is persisted as `LATE_IGNORED` without replacing current telemetry. Proven boot succession produces `BOOT_CHANGE_DETECTED`, increments the evidence epoch, and enters `RECOVERING`; unproven succession returns `ERR_BOOT_SUCCESSION`.
+- **Tests:** `tests/integration/test_story_1_1_heartbeat_ingestion.py`, `test_fleet_view.py`, `test_revision_cas.py`, `tests/unit/test_heartbeat_policy.py`, and `test_node_state_reducer.py` cover all advertised dispositions, persistence, rejection non-effects, and reducer behavior.
 
 ### Story 1.3 — Silent node detection & OFFLINE transition (annex 3.2) · commit `16c4d80`
 
@@ -112,10 +112,10 @@ tests/integration/test_story_2_1_thermal_cordon.py::test_exactly_88_does_not_act
 tests/unit/test_architecture.py::test_inner_layers_do_not_import_frameworks_or_outer_layers[domain] PASSED
 ...
 TOTAL                                                 1282     35    164     19    96%
-============================ 126 passed in 48.80s =============================
+============================ 130 passed in 14.73s =============================
 ```
 
-The same 126 tests pass against PostgreSQL 16 (`GPU_TWIN_TEST_DATABASE_URL=…/gpu_lab_twin_test pytest`); the docker compose stack below runs on PostgreSQL 17, and CI (`.github/workflows/ci.yml`) runs the suite on PostgreSQL 17. The suite refuses any database whose name does not end in `_test`.
+Before B01/B02 remediation, the then-current 126 tests passed against PostgreSQL 16 (`GPU_TWIN_TEST_DATABASE_URL=…/gpu_lab_twin_test pytest`). The current 130-test suite passed on SQLite; CI (`.github/workflows/ci.yml`) runs the suite on PostgreSQL 17. The suite refuses any database whose name does not end in `_test`.
 
 ### Live smoke run against `docker compose up` (PostgreSQL 17, real clock)
 
@@ -135,13 +135,21 @@ fleet nodeCount: 32
 
 ### BMad traceability
 
-- `docs/sprint-status.yaml` holds Impl-1's commitment comment and validates with `sprint_plan.py validate`. The three stories went `backlog → ready-for-dev → in-progress → review` (the BMad name for the task's "ready-for-review") in separate commits, then `→ done` after Mariana's review (`docs/review-checklist-impl1.md`).
+- `docs/sprint-status.yaml` holds Impl-1's commitment and validates with `sprint_plan.py validate`. Git history demonstrates planning, implementation, review/remediation, and final human review. The intermediate `in-progress` status was not persisted contemporaneously, so no historical timestamp is reconstructed. On 2026-10-26 Mariana approved Story 1-1 with a minor documentation concern and approved Stories 1-3 and 2-1; their current status is `done`.
 - Each story spec records its approved decisions, Implementation Notes and the full Review Triage Log (one row per reviewer finding with verdict and evidence):
   - `docs/spec-1-1-see-the-complete-simulated-fleet.md`
   - `docs/spec-1-3-detect-silence-at-the-exact-boundary.md`
   - `docs/spec-2-1-cordon-an-overheating-workstation.md`
 - Review totals across the 3 stories: 59 triage entries (each groups one or more raw reviewer findings with the same root cause). 37 were patched, 3 deferred (`docs/deferred-work.md`) and 19 rejected with evidence. Per story: 1.1 had 24 entries (16/1/7), 1.3 had 19 (13/1/5) and 2.1 had 16 (8/1/7).
-- `docs/ai-decision-log.md`: 17 entries, including corrected AI defects such as a falsy-zero offset bug, a clock read outside the write lock, a fleet scan that aborted on one node, and a float-vs-stored-precision mismatch.
+- `docs/ai-decision-log.md`: 18 AI interaction entries plus one genuine human-governance record, including corrected defects such as a falsy-zero offset bug, a clock read outside the write lock, a fleet scan that aborted on one node, and a float-vs-stored-precision mismatch.
+
+### Human review outcome (2026-10-26)
+
+- Reviewer: Mariana De La Cruz (A00399618).
+- Story 1-1 / annex 3.1: **APPROVED WITH MINOR DOCUMENTATION CONCERN**; the stale checklist and walkthrough statements were corrected.
+- Story 1-3 / annex 3.2: **APPROVED**.
+- Story 2-1 / annex 3.3: **APPROVED**.
+- Technical blockers remaining: **0**. B01 added canonical `maintenance_locks` schema/model coverage; B02 completed canonical heartbeat disposition behavior.
 
 ## 6. Known limits (documented, not hidden)
 
