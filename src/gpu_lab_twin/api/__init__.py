@@ -1,0 +1,1 @@
+"""Driving HTTP adapter (FastAPI)."""

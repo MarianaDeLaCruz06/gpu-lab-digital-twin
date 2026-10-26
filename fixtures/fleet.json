@@ -1,0 +1,427 @@
+{
+  "fixtureVersion": "1.0",
+  "description": "Canonical simulated campus fleet: 31 single-GPU 24 GB workstations and 1 dual-GPU 48 GB server. heartbeatIntervalMs resolves ODD-1 for the Impl-1 prototype (10 s, from the task annex).",
+  "nodes": [
+    {
+      "nodeId": "ws-gpu-01",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-01-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-02",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-02-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-03",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-03-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-04",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-04-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-05",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-05-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-06",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-06-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-07",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-07-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-08",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-08-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-09",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-09-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-10",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-10-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-11",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-11-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-12",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-12-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-13",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-13-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-14",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-14-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-15",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-15-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-16",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-16-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-17",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-17-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-18",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-18-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-19",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-19-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-20",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-20-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-21",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-21-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-22",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-22-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-23",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-23-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-24",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-24-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-25",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-25-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-26",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-26-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-27",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-27-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-28",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-28-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-29",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-29-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-30",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-30-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "ws-gpu-31",
+      "kind": "WORKSTATION",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 500,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "ws-gpu-31-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 24
+        }
+      ]
+    },
+    {
+      "nodeId": "central-gpu-server",
+      "kind": "SERVER",
+      "heartbeatIntervalMs": 10000,
+      "storageCapacityGb": 4000,
+      "gpuDevices": [
+        {
+          "gpuDeviceId": "central-gpu-server-gpu-0",
+          "ordinal": 0,
+          "vramCapacityGb": 48
+        },
+        {
+          "gpuDeviceId": "central-gpu-server-gpu-1",
+          "ordinal": 1,
+          "vramCapacityGb": 48
+        }
+      ]
+    }
+  ]
+}

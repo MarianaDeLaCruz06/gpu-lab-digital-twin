@@ -1,0 +1,11 @@
+.git
+.venv
+.agents
+.claude
+_bmad
+_bmad-output
+**/__pycache__
+*.db
+.pytest_cache
+.ruff_cache
+.coverage

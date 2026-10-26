@@ -1,102 +1,82 @@
 ﻿# GPU Lab Digital Twin
 
-Module 3 of the **Academic AI Compute Fabric**.
+Module 3 of the **Academic AI Compute Fabric** — a standalone, hardware-agnostic digital twin of the university GPU lab: 31 workstations with one 24 GB GPU each and one server with two 48 GB GPUs (32 nodes, 33 GPUs, 840 GB VRAM). All telemetry is simulated; no NVIDIA hardware, CUDA, or other team's module is required.
 
-## Team
+**Team:** Mariana De La Cruz · Julian Motta
 
-- Mariana De La Cruz
-- Julian Motta
+## Quick start
 
-## Module
+Requires Python 3.11+.
 
-**Module 3 — GPU Lab Digital Twin**  
-**Tier:** Intermediate
+```bash
+python -m venv .venv
+# Windows: .venv\Scripts\activate    macOS/Linux: source .venv/bin/activate
+pip install -e ".[dev]"
+pytest
+```
 
-This project defines a real-time digital twin for a university GPU laboratory composed of:
+The tests use an in-memory SQLite database and a fake clock, so they need no Docker, network, or wall-clock waits.
 
-- 31 workstations with 1 × 24 GB GPU each
-- 1 central server with 2 × 48 GB GPUs
+### Run the service with PostgreSQL
 
-The Digital Twin maintains the operational state of the fleet using simulated telemetry.
+```bash
+docker compose up --build
+```
 
-## Main Capabilities
+- API: http://localhost:8000 — interactive docs at http://localhost:8000/docs
+- `GET /health` (liveness) and `GET /ready` (database reachable and the canonical 32-node fleet seeded)
+- PostgreSQL is exposed on `localhost:5433` (user/password/db: `twin`/`twin`/`gpu_lab_twin`)
 
-The module tracks:
+The container runs `alembic upgrade head`, then seeds the fleet from `fixtures/fleet.json` at startup.
 
-- GPU temperature
-- VRAM occupancy
-- driver health
-- storage availability
-- heartbeat freshness
-- reservation context
-- maintenance locks
-- node operational state
+### Run the service locally without Docker
 
-## Mandatory Scenarios
+```bash
+alembic upgrade head          # creates gpu_lab_twin.db (SQLite) in the project root
+uvicorn gpu_lab_twin.main:app --reload
+```
 
-1. **Fleet Heartbeat Ingestion**  
-   Detect silent nodes after more than 3 missed heartbeat intervals.
+Configuration is optional; see [.env.example](.env.example).
 
-2. **Thermal Anomaly & Automatic Cordon**  
-   If `ws-gpu-14` exceeds 88°C, the node becomes `DEGRADED` and is cordoned from new jobs.
+## Architecture
 
-3. **Simulated Workstation Reboot**  
-   If `ws-gpu-05` loses state after a reboot, it transitions to `RECOVERING`.
-
-4. **Maintenance Drain**  
-   The dual-GPU server performs a graceful workload drain before maintenance.
-
-## Mandatory Edge Case
-
-A node may alternate between online and offline every 5 seconds.
-
-The system must prevent excessive state oscillation and alert flooding.
-
-## Protagonists
-
-- **Carlos** — Hardware Lab Technician
-- **Alex** — Graduate Researcher
-
-## Prototype
-
-The planned standalone prototype is an:
-
-**Interactive Fleet Map / Grid Dashboard with simulated telemetry injector and fault generator.**
-
-Physical NVIDIA GPUs are not required.
-
-This repository contains the planning and pre-implementation package. It does not claim that a production implementation exists.
-
-## Current Status
-
-- Phase 1 PRD: **COMPLETE**
-- Phase 2 UX: **COMPLETE**
-- Phase 3 Architecture: **COMPLETE**
-- Phase 4 Readiness Gate: **COMPLETE**
-- Final Readiness Status: **PASS**
-- Blocking contradictions: **0**
-
-## Project Structure
+Reducer-centric **Ports & Adapters** (hexagonal), as specified in [planning/ARCHITECTURE.md](planning/ARCHITECTURE.md) and [ports-and-adapters.md](planning/detailed-design/ports-and-adapters.md).
 
 ```text
-planning/
-├── prd.md
-├── ARCHITECTURE.md
-└── readiness-gate-report.md
-
-ux/
-├── DESIGN.md
-├── EXPERIENCE.md
-├── C-UX-Scenarios/
-├── pages/
-└── wireframes/
-
-reviews/
-├── review-prd-adversarial.md
-├── review-ux-edge-cases.md
-├── review-arch-adversarial.md
-└── review-arch-edge-cases.md
-
-ai-log/
-└── decision-log.md
+src/gpu_lab_twin/
+├── domain/        pure model: states, fleet inventory, policies, explanations (no framework, DB, clock, or random)
+├── ports/
+│   ├── inbound/   use-case interfaces called by driving adapters
+│   └── outbound/  Clock, NodeRepository — interfaces the core needs
+├── application/   use-case services: validate, sequence, call the domain, commit through ports
+├── adapters/
+│   ├── db/        SQLAlchemy 2.0 models + repositories (PostgreSQL target, SQLite in tests)
+│   ├── sim/       fleet fixture loader, FakeClock
+│   └── clock/     SystemClock — the only wall-clock read
+├── api/           FastAPI routes, DTOs, ErrorBody mapping
+├── config/        environment settings (validated at startup)
+└── bootstrap.py   composition root wiring adapters to ports
+fixtures/fleet.json   canonical 32-node seed data
+migrations/           Alembic migrations (mirror docs/contracts/schema.sql)
+tests/                unit + integration tests (pytest)
+docs/                 PRD, active contracts, sprint-status.yaml, AI decision log
 ```
+
+`tests/unit/test_architecture.py` enforces the dependency rule: `domain/`, `ports/` and `application/` never import FastAPI, Pydantic, SQLAlchemy, adapters, or the wall clock.
+
+Every error response uses the contract `ErrorBody` (`code`, `message`, `retryable`, `details`); no stack trace reaches a client.
+
+## Project documents
+
+| Document | Purpose |
+|---|---|
+| [docs/prd.md](docs/prd.md) | Module PRD (from Plan-2) |
+| [docs/contracts/](docs/contracts/) | Active OpenAPI 3.1, SQL schema, behavioral contracts, events |
+| [docs/sprint-status.yaml](docs/sprint-status.yaml) | BMad sprint tracking |
+| [docs/ai-decision-log.md](docs/ai-decision-log.md) | Impl-1 AI prompts, outputs, and human review decisions |
+| [walkthrough-impl1.md](walkthrough-impl1.md) | Impl-1 implementation walkthrough |
+| `planning/`, `ux/`, `reviews/`, `test/` | Frozen Plan-2 / Solu-2 baseline (the `test/` RED contract suite is kept as Solu-2 evidence and is outside the default `pytest` run) |
+
+## Scope
+
+Owned by Module 3: fleet inventory, heartbeat ingestion, deterministic node state + cordon, silent-node detection, thermal cordon, and explanations. Reservations, scheduling, model catalog, inference, and enterprise observability belong to other modules and are not implemented here.

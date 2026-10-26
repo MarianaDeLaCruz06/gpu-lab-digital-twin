@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: gpu_lab_twin
+      POSTGRES_USER: twin
+      POSTGRES_PASSWORD: twin
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U twin -d gpu_lab_twin"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      GPU_TWIN_DATABASE_URL: postgresql+psycopg://twin:twin@db:5432/gpu_lab_twin
+      GPU_TWIN_LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10

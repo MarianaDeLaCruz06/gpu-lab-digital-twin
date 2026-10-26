@@ -1,0 +1,274 @@
+openapi: 3.1.0
+info:
+  title: GPU Lab Digital Twin — Module 3
+  version: 1.1.0
+  description: >-
+    Local simulated API; no production authorization or hardware integration.
+    1.1.0 (Impl-1) adds the operational probes /health and /ready to the Solu-2 1.0.0 baseline
+    (planning/detailed-design/schemas/openapi.yaml); domain operations are unchanged.
+paths:
+  /health:
+    get:
+      operationId: liveness
+      tags: [operations]
+      responses:
+        '200': {description: Process is alive, content: {application/json: {schema: {$ref: '#/components/schemas/LivenessResponse'}}}}
+  /ready:
+    get:
+      operationId: readiness
+      tags: [operations]
+      description: Ready only when the database answers and the stored fleet equals the canonical 32-node / 33-GPU inventory.
+      responses:
+        '200': {description: Ready to accept input, content: {application/json: {schema: {$ref: '#/components/schemas/ReadinessResponse'}}}}
+        '503': {$ref: '#/components/responses/IngressUnavailable'}
+  /v1/nodes/{nodeId}/heartbeats:
+    post:
+      operationId: ingestHeartbeat
+      parameters:
+        - $ref: '#/components/parameters/NodeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/IngestHeartbeatRequest'}
+            example:
+              eventId: 7ed33825-f0ab-4ad4-b45e-3fce7178fcaa
+              occurredAt: '2026-10-15T14:05:03Z'
+              receivedAt: '2026-10-15T14:05:03Z'
+              schemaVersion: '1.0'
+              bootSessionId: boot-a
+              previousBootSessionId: null
+              stateLoss: false
+              sourceSequence: 42
+              gpuSamples: [{gpuDeviceId: ws-gpu-14-gpu-0, temperatureC: 88.1, vramOccupiedGb: 4.0}]
+              driverHealth: HEALTHY
+              storageFreeGb: 320.0
+              externalContext: null
+      responses:
+        '200': {description: Applied, duplicate, late-ignored, or boot-change result, content: {application/json: {schema: {$ref: '#/components/schemas/IngestHeartbeatResponse'}}}}
+        '404': {$ref: '#/components/responses/UnknownNode'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+        '503': {$ref: '#/components/responses/IngressUnavailable'}
+  /v1/nodes/{nodeId}/state-transitions:preview:
+    post:
+      operationId: transitionNodeState
+      description: Side-effect-free HTTP preview of the core reducer contract; committed transitions are invoked internally through accepted signals.
+      parameters:
+        - $ref: '#/components/parameters/NodeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TransitionNodeStateRequest'}
+            example:
+              eventId: 891a5acc-b015-47d3-a826-91e2039bc95f
+              occurredAt: '2026-10-15T14:06:00Z'
+              schemaVersion: '1.0'
+              signalType: CONNECTIVITY_OBSERVED
+              evidenceId: observation-12
+              evaluationAt: '2026-10-15T14:06:00Z'
+              connectivityObservation: OFFLINE
+      responses:
+        '200': {description: Deterministic transitioned/held/duplicate evaluation, content: {application/json: {schema: {$ref: '#/components/schemas/TransitionNodeStateResponse'}}}}
+        '404': {$ref: '#/components/responses/UnknownNode'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /v1/nodes/{nodeId}/maintenance-drains:
+    post:
+      operationId: scheduleMaintenanceDrain
+      parameters:
+        - $ref: '#/components/parameters/NodeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ScheduleMaintenanceDrainRequest'}
+            example:
+              eventId: 73b6e42a-1c55-44e2-a508-141a101e7e5d
+              requestId: c2d46b8b-191a-4ba9-9298-6c62990bc047
+              occurredAt: '2026-10-15T15:00:00Z'
+              schemaVersion: '1.0'
+              startsAt: '2026-10-15T15:00:00Z'
+              reason: Replace simulated cooling fan
+              expectedNodeRevision: 17
+              actor: Carlos
+      responses:
+        '200': {description: Existing identical request, content: {application/json: {schema: {$ref: '#/components/schemas/ScheduleMaintenanceDrainResponse'}}}}
+        '201': {description: Drain scheduled and node atomically cordoned, content: {application/json: {schema: {$ref: '#/components/schemas/ScheduleMaintenanceDrainResponse'}}}}
+        '404': {$ref: '#/components/responses/UnknownNode'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+        '503': {$ref: '#/components/responses/IngressUnavailable'}
+components:
+  parameters:
+    NodeId:
+      name: nodeId
+      in: path
+      required: true
+      schema: {type: string, pattern: '^[a-z0-9][a-z0-9-]{0,62}$'}
+  responses:
+    UnknownNode:
+      description: ERR_UNKNOWN_NODE
+      content: {application/json: {schema: {$ref: '#/components/schemas/ErrorBody'}, example: {code: ERR_UNKNOWN_NODE, message: Node ws-gpu-99 is not configured in this simulation run., retryable: false, details: {nodeId: ws-gpu-99}}}}
+    ValidationError:
+      description: ERR_SCHEMA or ERR_CAPACITY_RANGE
+      content: {application/json: {schema: {$ref: '#/components/schemas/ErrorBody'}, examples: {schema: {value: {code: ERR_SCHEMA, message: Field driverHealth violates enum., retryable: false, details: {field: driverHealth}}}, capacity: {value: {code: ERR_CAPACITY_RANGE, message: vramOccupiedGb is outside the configured capacity., retryable: false, details: {field: vramOccupiedGb}}}}}}
+    Conflict:
+      description: ERR_IDEMPOTENCY_CONFLICT, ERR_ORDER_AMBIGUOUS, ERR_BOOT_SUCCESSION, ERR_REVISION_CONFLICT, ERR_EVIDENCE_NOT_FOUND, ERR_CLOCK_ORDER, ERR_INVALID_TRANSITION, ERR_POLICY_UNRESOLVED, ERR_POLICY_STATE_CONFLICT, ERR_MAINTENANCE_CONFLICT, or ERR_LOCK_SOURCE_MISMATCH
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorBody'}
+          example: {code: ERR_REVISION_CONFLICT, message: Expected revision 16; current revision is 17., retryable: true, details: {expected: 16, actual: 17}}
+    IngressUnavailable:
+      description: ERR_INGRESS_UNAVAILABLE; input was not accepted
+      content: {application/json: {schema: {$ref: '#/components/schemas/ErrorBody'}, example: {code: ERR_INGRESS_UNAVAILABLE, message: Ingress is unavailable; the event was not accepted., retryable: true, details: {}}}}
+  schemas:
+    LivenessResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: {const: ok}
+    ReadinessResponse:
+      type: object
+      additionalProperties: false
+      required: [status, nodes, gpuDevices]
+      properties:
+        status: {const: ready}
+        nodes: {type: integer, minimum: 0}
+        gpuDevices: {type: integer, minimum: 0}
+    NodeState:
+      type: string
+      enum: [UNKNOWN, HEALTHY, DEGRADED, RECOVERING, DRAINING, MAINTENANCE, OFFLINE]
+    ExplanationDTO:
+      type: object
+      additionalProperties: false
+      required: [ruleIds, observedValues, thresholds, evidenceIds, policyVersion, priorState, resultState, summary]
+      properties:
+        ruleIds: {type: array, minItems: 1, items: {type: string}}
+        observedValues: {type: object, additionalProperties: true}
+        thresholds: {type: object, additionalProperties: true}
+        expectedState: {anyOf: [{$ref: '#/components/schemas/NodeState'}, {type: 'null'}], default: null}
+        evidenceIds: {type: array, minItems: 1, items: {type: string}}
+        policyVersion: {type: string}
+        priorState: {$ref: '#/components/schemas/NodeState'}
+        resultState: {$ref: '#/components/schemas/NodeState'}
+        summary: {type: string, minLength: 1, maxLength: 1000}
+    ErrorBody:
+      type: object
+      additionalProperties: false
+      required: [code, message, retryable, details]
+      properties:
+        code: {type: string, enum: [ERR_SCHEMA, ERR_UNKNOWN_NODE, ERR_CAPACITY_RANGE, ERR_IDEMPOTENCY_CONFLICT, ERR_ORDER_AMBIGUOUS, ERR_LATE_EVENT, ERR_DUPLICATE, ERR_BOOT_SUCCESSION, ERR_REVISION_CONFLICT, ERR_EVIDENCE_NOT_FOUND, ERR_CLOCK_ORDER, ERR_INVALID_TRANSITION, ERR_POLICY_UNRESOLVED, ERR_POLICY_STATE_CONFLICT, ERR_MAINTENANCE_CONFLICT, ERR_LOCK_SOURCE_MISMATCH, ERR_INGRESS_UNAVAILABLE]}
+        message: {type: string}
+        retryable: {type: boolean}
+        details: {type: object, additionalProperties: true}
+    GpuSampleDTO:
+      type: object
+      additionalProperties: false
+      required: [gpuDeviceId, temperatureC, vramOccupiedGb]
+      properties:
+        gpuDeviceId: {type: string, minLength: 1, maxLength: 128}
+        temperatureC: {type: number, minimum: 0}
+        vramOccupiedGb: {type: number, minimum: 0}
+    ExternalContextDTO:
+      type: object
+      additionalProperties: false
+      required: [source, sourceRevision, observedAt, receivedAt, reservationIds, activeWorkloadIds]
+      properties:
+        source: {const: EXTERNAL_MOCK}
+        sourceRevision: {type: integer, minimum: 0}
+        observedAt: {type: string, format: date-time}
+        receivedAt: {type: string, format: date-time}
+        reservationIds: {type: array, items: {type: string}}
+        activeWorkloadIds: {type: array, items: {type: string}}
+    IngestHeartbeatRequest:
+      type: object
+      additionalProperties: false
+      required: [eventId, occurredAt, receivedAt, schemaVersion, bootSessionId, stateLoss, gpuSamples, driverHealth, storageFreeGb]
+      properties:
+        eventId: {type: string, format: uuid}
+        occurredAt: {type: string, format: date-time}
+        receivedAt: {type: string, format: date-time}
+        schemaVersion: {const: '1.0'}
+        bootSessionId: {type: string, minLength: 1, maxLength: 128}
+        previousBootSessionId: {anyOf: [{type: string, minLength: 1, maxLength: 128}, {type: 'null'}], default: null}
+        stateLoss: {type: boolean}
+        sourceSequence: {anyOf: [{type: integer, minimum: 0}, {type: 'null'}], default: null}
+        gpuSamples: {type: array, minItems: 1, maxItems: 2, items: {$ref: '#/components/schemas/GpuSampleDTO'}}
+        driverHealth: {type: string, enum: [HEALTHY, UNHEALTHY, UNKNOWN]}
+        storageFreeGb: {type: number, minimum: 0}
+        externalContext: {anyOf: [{$ref: '#/components/schemas/ExternalContextDTO'}, {type: 'null'}], default: null}
+    IngestHeartbeatResponse:
+      type: object
+      additionalProperties: false
+      required: [eventId, nodeId, outcome, nodeRevision, state, cordoned, connectivityStatus, acceptedAt, explanation]
+      properties:
+        eventId: {type: string, format: uuid}
+        nodeId: {type: string}
+        outcome: {type: string, enum: [APPLIED, DUPLICATE, LATE_IGNORED, BOOT_CHANGE_DETECTED]}
+        nodeRevision: {type: integer, minimum: 0}
+        state: {$ref: '#/components/schemas/NodeState'}
+        cordoned: {type: boolean}
+        connectivityStatus: {type: string, enum: [UNKNOWN, ONLINE, SILENT, CONNECTIVITY_UNSTABLE]}
+        acceptedAt: {type: string, format: date-time}
+        explanation: {$ref: '#/components/schemas/ExplanationDTO'}
+    TransitionNodeStateRequest:
+      type: object
+      additionalProperties: false
+      required: [eventId, occurredAt, schemaVersion, signalType, evidenceId, evaluationAt]
+      properties:
+        eventId: {type: string, format: uuid}
+        occurredAt: {type: string, format: date-time}
+        schemaVersion: {const: '1.0'}
+        signalType: {type: string, enum: [HEARTBEAT_ACCEPTED, CLOCK_EVALUATED, CONNECTIVITY_OBSERVED, WORKLOAD_SNAPSHOT_ACCEPTED, MAINTENANCE_COMMAND_ACCEPTED]}
+        evidenceId: {type: string, minLength: 1, maxLength: 128}
+        evaluationAt: {type: string, format: date-time}
+        connectivityObservation: {anyOf: [{type: string, enum: [ONLINE, OFFLINE]}, {type: 'null'}], default: null}
+    TransitionNodeStateResponse:
+      type: object
+      additionalProperties: false
+      required: [eventId, nodeId, outcome, nodeRevision, priorState, state, cordoned, connectivityStatus, activeReasonCodes, transitioned, explanation]
+      properties:
+        eventId: {type: string, format: uuid}
+        nodeId: {type: string}
+        outcome: {type: string, enum: [TRANSITIONED, HELD, DUPLICATE]}
+        nodeRevision: {type: integer, minimum: 0}
+        priorState: {$ref: '#/components/schemas/NodeState'}
+        state: {$ref: '#/components/schemas/NodeState'}
+        cordoned: {type: boolean}
+        connectivityStatus: {type: string, enum: [UNKNOWN, ONLINE, SILENT, CONNECTIVITY_UNSTABLE]}
+        activeReasonCodes: {type: array, items: {type: string}}
+        transitioned: {type: boolean}
+        explanation: {$ref: '#/components/schemas/ExplanationDTO'}
+    ScheduleMaintenanceDrainRequest:
+      type: object
+      additionalProperties: false
+      required: [eventId, requestId, occurredAt, schemaVersion, startsAt, reason, expectedNodeRevision, actor]
+      properties:
+        eventId: {type: string, format: uuid}
+        requestId: {type: string, format: uuid}
+        occurredAt: {type: string, format: date-time}
+        schemaVersion: {const: '1.0'}
+        startsAt: {type: string, format: date-time}
+        reason: {type: string, minLength: 1, maxLength: 500}
+        expectedNodeRevision: {type: integer, minimum: 0}
+        actor: {type: string, minLength: 1, maxLength: 128}
+    ScheduleMaintenanceDrainResponse:
+      type: object
+      additionalProperties: false
+      required: [eventId, requestId, nodeId, outcome, lockId, nodeRevision, state, cordoned, activeWorkloadCount, activeWorkloadIds, workloadObservedAt, explanation]
+      properties:
+        eventId: {type: string, format: uuid}
+        requestId: {type: string, format: uuid}
+        nodeId: {type: string}
+        outcome: {type: string, enum: [SCHEDULED, DUPLICATE]}
+        lockId: {type: string, format: uuid}
+        nodeRevision: {type: integer, minimum: 0}
+        state: {type: string, enum: [DRAINING, MAINTENANCE]}
+        cordoned: {const: true}
+        activeWorkloadCount: {anyOf: [{type: integer, minimum: 0}, {type: 'null'}]}
+        activeWorkloadIds: {type: array, items: {type: string}}
+        workloadObservedAt: {anyOf: [{type: string, format: date-time}, {type: 'null'}]}
+        explanation: {$ref: '#/components/schemas/ExplanationDTO'}
