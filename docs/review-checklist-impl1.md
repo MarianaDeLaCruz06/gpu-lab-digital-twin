@@ -35,7 +35,7 @@ For each story, read the spec's frozen Intent, I/O matrix and Review Triage Log 
 
 ### Story 1-1 — heartbeat ingestion + fleet view (annex 3.1)
 
-- **Diff:** commit `9fb7442` · **Spec:** `docs/spec-1-1-see-the-complete-simulated-fleet.md`
+- **Diff:** commit `0b3f965` · **Spec:** `docs/spec-1-1-see-the-complete-simulated-fleet.md`
 - **Look closely at:**
   - `src/gpu_lab_twin/application/heartbeat_service.py`: validation and the clock read happen under the write lock; duplicate vs. conflict handling.
   - `src/gpu_lab_twin/adapters/db/node_repository.py`: the `commit_heartbeat` single transaction, the revision CAS (`_compare_and_set`), and the alert upsert on the partial unique index.
@@ -48,7 +48,7 @@ For each story, read the spec's frozen Intent, I/O matrix and Review Triage Log 
 
 ### Story 1-3 — silent node → OFFLINE (annex 3.2)
 
-- **Diff:** commit `73e680c` · **Spec:** `docs/spec-1-3-detect-silence-at-the-exact-boundary.md`
+- **Diff:** commit `16c4d80` · **Spec:** `docs/spec-1-3-detect-silence-at-the-exact-boundary.md`
 - **Look closely at:**
   - `src/gpu_lab_twin/domain/heartbeat_policy.py::is_silent`: strict `>` on `timedelta`.
   - `src/gpu_lab_twin/application/liveness_service.py`: instants must advance, failures are isolated per node, and the configured inventory interval is used.
@@ -61,7 +61,7 @@ For each story, read the spec's frozen Intent, I/O matrix and Review Triage Log 
 
 ### Story 2-1 — thermal cordon (annex 3.3)
 
-- **Diff:** commit `0d6c316` · **Spec:** `docs/spec-2-1-cordon-an-overheating-workstation.md`
+- **Diff:** commit `74cb068` · **Spec:** `docs/spec-2-1-cordon-an-overheating-workstation.md`
 - **Look closely at:**
   - `reasons_from` in `heartbeat_policy.py` (`THERMAL_THRESHOLD_C`).
   - Measurement quantization in `api/schemas.py` (`_stored`).

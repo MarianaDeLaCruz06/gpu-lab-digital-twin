@@ -41,7 +41,7 @@ migrations/          Alembic 0001 — mirrors docs/contracts/schema.sql for the 
 - **Errors:** every non-happy path returns the contract `ErrorBody` (`code`, `message`, `retryable`, `details`). Covered codes: 404 `ERR_UNKNOWN_NODE`; 422 `ERR_SCHEMA`/`ERR_CAPACITY_RANGE`; 409 `ERR_IDEMPOTENCY_CONFLICT`/`ERR_ORDER_AMBIGUOUS`/`ERR_BOOT_SUCCESSION`/`ERR_REVISION_CONFLICT`/`ERR_CLOCK_ORDER`/`ERR_POLICY_UNRESOLVED`; 503 `ERR_INGRESS_UNAVAILABLE`.
 - **Contract changes (OpenAPI 1.0.0 → 1.1.0, `docs/contracts/openapi.yaml`):** added `/health`, `/ready` and `GET /v1/nodes` (ARCHITECTURE §9.4, which Solu-2's OpenAPI omitted). The three mutation operations are unchanged. Each addition is logged in `docs/ai-decision-log.md`.
 
-## 3. Foundation scaffold (commit `a2e87a6`)
+## 3. Foundation scaffold (commit `a0fda5a`)
 
 - One-command setup: `pip install -e ".[dev]"` then `pytest` (in-memory SQLite, FakeClock, no Docker or network). `docker compose up` runs PostgreSQL + API (`alembic upgrade head`, fleet seeding, `/ready`).
 - Startup fails closed if `fixtures/fleet.json` is not exactly the canonical inventory. `/ready` returns 503 if the stored fleet diverges.
@@ -50,7 +50,7 @@ migrations/          Alembic 0001 — mirrors docs/contracts/schema.sql for the 
 
 ## 4. Stories
 
-### Story 1.1 — Heartbeat ingestion & complete fleet view (annex 3.1) · commit `9fb7442`
+### Story 1.1 — Heartbeat ingestion & complete fleet view (annex 3.1) · commit `0b3f965`
 
 - **Goal:** ingest simulated heartbeats and keep the current operational state of all 32 machines.
 - **Endpoints:**
@@ -69,7 +69,7 @@ migrations/          Alembic 0001 — mirrors docs/contracts/schema.sql for the 
   - A boot change fails closed until Story 2.2.
 - **Tests:** `tests/integration/test_story_1_1_heartbeat_ingestion.py` (17 functions, 27 cases), `test_fleet_view.py` (4), `test_revision_cas.py` (1), `tests/unit/test_heartbeat_policy.py` (16 cases), `test_node_state_reducer.py` (7 cases). Every rejection asserts zero side effects on rows and revisions.
 
-### Story 1.3 — Silent node detection & OFFLINE transition (annex 3.2) · commit `73e680c`
+### Story 1.3 — Silent node detection & OFFLINE transition (annex 3.2) · commit `16c4d80`
 
 - **Goal:** mark nodes that miss more than 3 heartbeat intervals as `OFFLINE` and exclude them from new work.
 - **Trigger:** `LivenessService.evaluate_fleet_liveness()`. An in-process scan runs every `GPU_TWIN_LIVENESS_SCAN_SECONDS` (default 5 s), and tests call it with FakeClock. There is no new endpoint (decision D1).
@@ -82,7 +82,7 @@ migrations/          Alembic 0001 — mirrors docs/contracts/schema.sql for the 
 - **Database:** for each transitioning node, `commit_transition` does a revision-CAS `nodes` update (`OFFLINE`, `SILENT`, `ERR_SILENT`), adds a history row, upserts the `ERR_SILENT` alert episode and writes an audit row (`NodeSilenceDetected`, `annexEventName: NODE_SILENT_TIMEOUT`). When the node returns, the silence episode closes and a `RECOVERY_PENDING` episode opens.
 - **Tests:** `tests/integration/test_story_1_3_silent_node_detection.py` (16 functions, 18 cases), `test_liveness_scan_wiring.py` (3 functions, 5 cases), `tests/unit/test_silence_policy.py` (4 functions, 7 cases incl. a Hypothesis boundary property), `test_scheduler.py` (2).
 
-### Story 2.1 — Automated thermal anomaly cordoning (annex 3.3) · commit `0d6c316`
+### Story 2.1 — Automated thermal anomaly cordoning (annex 3.3) · commit `74cb068`
 
 - **Goal:** automatically cordon any node whose GPU temperature exceeds 88 °C.
 - **Endpoints:** the existing heartbeat route (thermal is a reason inside ingestion). Unavailability is visible as `cordoned=true` in the response and in `GET /v1/nodes` (decision D1).

@@ -5,7 +5,7 @@ created: '2026-10-25'
 status: 'done'
 route: 'dispatch'
 review_loop_iteration: 0
-baseline_commit: '69b3ce212256198af033b7df5fdfbd8d3b304707'
+baseline_commit: 'ddf15e66db867d90549bb6ce6a39214b92096581'
 context: ['{project-root}/docs/epic-1-context.md', '{project-root}/docs/contracts/openapi.yaml']
 ---
 

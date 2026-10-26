@@ -5,7 +5,7 @@ created: '2026-10-25'
 status: 'done'
 route: 'dispatch'
 review_loop_iteration: 0
-baseline_commit: '73e680c7beb0ec9dc97197ddefb971689ac4cbec'
+baseline_commit: '16c4d801b0e45a0e67c534e72dbc861a03eacfe2'
 context: ['{project-root}/docs/epic-2-context.md', '{project-root}/docs/spec-1-1-see-the-complete-simulated-fleet.md']
 ---
 
