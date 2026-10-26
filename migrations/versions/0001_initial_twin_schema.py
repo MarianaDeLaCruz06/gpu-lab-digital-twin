@@ -1,6 +1,6 @@
-"""Initial twin schema: node aggregate, GPU devices, telemetry evidence, history, alerts, audit.
+"""Initial twin schema: the complete Solu-2 persistence contract.
 
-Mirrors docs/contracts/schema.sql for the tables Impl-1 uses. maintenance_locks arrives with Epic 3.
+Mirrors planning/detailed-design/schemas/001_gpu_lab_digital_twin_schema.sql.
 
 Revision ID: 0001
 Revises:
@@ -194,6 +194,41 @@ def upgrade() -> None:
     )
 
     op.create_table(
+        "maintenance_locks",
+        sa.Column("lock_id", sa.Uuid, primary_key=True),
+        sa.Column("request_id", sa.Uuid, nullable=False, unique=True),
+        sa.Column("request_hash", sa.CHAR(64), nullable=False),
+        sa.Column("node_id", sa.String(63), sa.ForeignKey("nodes.node_id", ondelete="RESTRICT"), nullable=False),
+        sa.Column("reason", sa.String(500), nullable=False),
+        sa.Column("actor", sa.String(128), nullable=False),
+        sa.Column("acquired_at", tstz, nullable=False),
+        sa.Column("expected_node_revision", sa.BigInteger, nullable=False),
+        sa.Column("active", sa.Boolean, nullable=False, server_default=sa.true()),
+        sa.Column("released_at", tstz),
+        sa.Column("release_request_id", sa.Uuid, unique=True),
+        sa.Column("created_at", tstz, nullable=False, server_default=now),
+        sa.Column("updated_at", tstz, nullable=False, server_default=now),
+        sa.CheckConstraint("expected_node_revision >= 0", name="maintenance_expected_revision_ck"),
+        sa.CheckConstraint(
+            "(active AND released_at IS NULL) OR (NOT active AND released_at IS NOT NULL)",
+            name="maintenance_release_ck",
+        ),
+        sa.CheckConstraint("length(trim(reason)) > 0", name="maintenance_reason_ck"),
+        sa.CheckConstraint("length(trim(actor)) > 0", name="maintenance_actor_ck"),
+        *pg_only(
+            sa.CheckConstraint("request_hash ~ '^[0-9a-f]{64}$'", name="maintenance_request_hash_ck"),
+        ),
+    )
+    op.create_index(
+        "maintenance_locks_one_active_uq",
+        "maintenance_locks",
+        ["node_id"],
+        unique=True,
+        postgresql_where=sa.text("active"),
+        sqlite_where=sa.text("active"),
+    )
+
+    op.create_table(
         "alerts",
         sa.Column("alert_id", sa.Uuid, primary_key=True),
         sa.Column("node_id", sa.String(63), sa.ForeignKey("nodes.node_id", ondelete="RESTRICT"), nullable=False),
@@ -238,6 +273,7 @@ def downgrade() -> None:
     for table in (
         "audit_events",
         "alerts",
+        "maintenance_locks",
         "node_state_history",
         "telemetry_gpu_samples",
         "telemetry_snapshots",

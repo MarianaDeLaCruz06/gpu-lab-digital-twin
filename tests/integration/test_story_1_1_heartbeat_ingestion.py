@@ -4,12 +4,19 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 
-from gpu_lab_twin.adapters.db.models import AlertRow, NodeRow, NodeStateHistoryRow
+from gpu_lab_twin.adapters.db.models import (
+    AlertRow,
+    AuditEventRow,
+    NodeRow,
+    NodeStateHistoryRow,
+    TelemetrySnapshotRow,
+)
 from gpu_lab_twin.adapters.sim.fake_clock import FakeClock
 from gpu_lab_twin.bootstrap import Container
 from tests.conftest import T0
@@ -205,24 +212,131 @@ def test_reused_source_sequence_with_new_event_is_ambiguous_409(client: TestClie
     assert effect_probe(container.engine) == after_first
 
 
-@pytest.mark.parametrize(
-    ("overrides", "status", "code"),
-    [
-        ({"boot": "boot-b"}, 409, "ERR_BOOT_SUCCESSION"),
-        ({"boot": "boot-b", "previousBootSessionId": "boot-a"}, 409, "ERR_POLICY_UNRESOLVED"),
-        ({"boot": "boot-b", "stateLoss": True}, 409, "ERR_POLICY_UNRESOLVED"),
-    ],
-    ids=["unproven-boot-change", "linked-successor", "explicit-state-loss"],
-)
-def test_boot_changes_fail_closed_until_recovery_is_enabled(
-    client, container, fake_clock, overrides, status, code
-) -> None:
+def test_unproven_boot_change_is_rejected_without_effects(client, container, fake_clock) -> None:
     post(client, "ws-gpu-05", heartbeat_body("ws-gpu-05", T0))
     after_first = effect_probe(container.engine)
     later = fake_clock.advance(seconds=10)
 
-    assert_rejected(post(client, "ws-gpu-05", heartbeat_body("ws-gpu-05", later, seq=2, **overrides)), status, code)
+    assert_rejected(
+        post(client, "ws-gpu-05", heartbeat_body("ws-gpu-05", later, seq=2, boot="boot-b")),
+        409,
+        "ERR_BOOT_SUCCESSION",
+    )
     assert effect_probe(container.engine) == after_first
+
+
+@pytest.mark.parametrize(
+    "successor_evidence",
+    [{"previousBootSessionId": "boot-a"}, {"stateLoss": True}],
+    ids=["linked-successor", "explicit-state-loss"],
+)
+def test_proven_boot_change_is_detected_and_enters_recovery(client, container, fake_clock, successor_evidence) -> None:
+    post(client, "ws-gpu-05", heartbeat_body("ws-gpu-05", T0))
+    later = fake_clock.advance(seconds=10)
+
+    response = post(
+        client,
+        "ws-gpu-05",
+        heartbeat_body("ws-gpu-05", later, seq=1, boot="boot-b", **successor_evidence),
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["outcome"] == "BOOT_CHANGE_DETECTED"
+    assert (body["state"], body["cordoned"], body["nodeRevision"]) == ("RECOVERING", True, 2)
+    assert body["explanation"]["observedValues"]["priorBootSessionId"] == "boot-a"
+    assert body["explanation"]["observedValues"]["evidenceEpoch"] == 1
+    row = node_row(container, "ws-gpu-05")
+    assert (row.current_boot_session_id, row.evidence_epoch) == ("boot-b", 1)
+    with container.engine.connect() as connection:
+        telemetry = connection.execute(
+            select(TelemetrySnapshotRow).where(TelemetrySnapshotRow.event_id == UUID(body["eventId"]))
+        ).one()
+        audit = connection.execute(select(AuditEventRow).where(AuditEventRow.event_id == UUID(body["eventId"]))).one()
+    assert (telemetry.disposition, telemetry.evidence_epoch, telemetry.is_current) == (
+        "BOOT_CHANGE_DETECTED",
+        1,
+        True,
+    )
+    assert audit.event_type == "RebootDetected"
+
+
+def test_older_heartbeat_is_persisted_late_without_stale_overwrite(client, container, fake_clock) -> None:
+    post(client, "ws-gpu-03", heartbeat_body("ws-gpu-03", T0, seq=10))
+    current_at = fake_clock.advance(seconds=10)
+    current = post(client, "ws-gpu-03", heartbeat_body("ws-gpu-03", current_at, seq=11)).json()
+    before_late = effect_probe(container.engine)
+    fake_clock.advance(seconds=10)
+
+    late = post(
+        client,
+        "ws-gpu-03",
+        heartbeat_body("ws-gpu-03", T0 + timedelta(seconds=5), seq=9, temperatures=(75.0,)),
+    )
+
+    assert late.status_code == 200, late.text
+    body = late.json()
+    assert body["outcome"] == "LATE_IGNORED"
+    assert (body["nodeRevision"], body["state"], body["cordoned"]) == (2, "HEALTHY", False)
+    assert body["explanation"]["ruleIds"] == ["ERR_LATE_EVENT"]
+    assert body["explanation"]["observedValues"]["currentSourceSequence"] == 11
+    row = node_row(container, "ws-gpu-03")
+    assert (row.revision, row.last_accepted_event_at) == (2, current_at)
+    with container.engine.connect() as connection:
+        snapshots = connection.execute(
+            select(TelemetrySnapshotRow)
+            .where(TelemetrySnapshotRow.node_id == "ws-gpu-03")
+            .order_by(TelemetrySnapshotRow.ingest_offset)
+        ).all()
+        histories = connection.scalar(
+            select(func.count()).select_from(NodeStateHistoryRow).where(NodeStateHistoryRow.node_id == "ws-gpu-03")
+        )
+    assert [(row.disposition, row.is_current) for row in snapshots] == [
+        ("APPLIED", False),
+        ("APPLIED", True),
+        ("LATE_IGNORED", False),
+    ]
+    assert str(snapshots[1].event_id) == current["eventId"]
+    assert histories == 1
+    after_late = effect_probe(container.engine)
+    assert after_late[0] == before_late[0]
+    assert after_late[1] == (
+        before_late[1][0] + 1,
+        before_late[1][1] + 1,
+        before_late[1][2],
+        before_late[1][3],
+        before_late[1][4] + 1,
+    )
+
+    replay = post(
+        client,
+        "ws-gpu-03",
+        heartbeat_body("ws-gpu-03", T0 + timedelta(seconds=5), seq=9, temperatures=(75.0,)),
+    )
+    assert replay.json() == {**body, "outcome": "DUPLICATE"}
+    assert effect_probe(container.engine) == after_late
+
+
+def test_non_increasing_sequence_with_newer_time_is_late_ignored(client, container, fake_clock) -> None:
+    post(client, "ws-gpu-03", heartbeat_body("ws-gpu-03", T0, seq=10))
+    before_late = effect_probe(container.engine)
+    later = fake_clock.advance(seconds=10)
+
+    response = post(client, "ws-gpu-03", heartbeat_body("ws-gpu-03", later, seq=10))
+
+    assert response.status_code == 200, response.text
+    assert response.json()["outcome"] == "LATE_IGNORED"
+    row = node_row(container, "ws-gpu-03")
+    assert (row.revision, row.last_accepted_event_at) == (1, T0)
+    after_late = effect_probe(container.engine)
+    assert after_late[0] == before_late[0]
+    assert after_late[1] == (
+        before_late[1][0] + 1,
+        before_late[1][1] + 1,
+        before_late[1][2],
+        before_late[1][3],
+        before_late[1][4] + 1,
+    )
 
 
 def test_receive_clock_moving_backwards_is_rejected(client, container, fake_clock, monkeypatch) -> None:

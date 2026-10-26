@@ -117,8 +117,8 @@ def test_out_of_range_values_reject_the_whole_heartbeat(changes, expected) -> No
 
 
 def test_first_heartbeat_and_same_boot_need_no_succession_proof() -> None:
-    check_boot_succession(node(current_boot=None), payload(boot_session_id="boot-z"))
-    check_boot_succession(node(current_boot="boot-a"), payload())
+    assert check_boot_succession(node(current_boot=None), payload(boot_session_id="boot-z")) is False
+    assert check_boot_succession(node(current_boot="boot-a"), payload()) is False
 
 
 def test_unproven_boot_change_is_a_succession_error() -> None:
@@ -136,11 +136,8 @@ def test_unproven_boot_change_is_a_succession_error() -> None:
     ],
     ids=["linked-successor", "state-loss-new-boot", "state-loss-same-boot"],
 )
-def test_proven_reboot_is_held_until_recovery_policy_exists(changes) -> None:
-    with pytest.raises(DomainError) as caught:
-        check_boot_succession(node("boot-a"), payload(**changes))
-    assert caught.value.code is ErrorCode.ERR_POLICY_UNRESOLVED
-    assert caught.value.details["policyId"] == "ODD-3"
+def test_proven_reboot_starts_a_new_evidence_epoch(changes) -> None:
+    assert check_boot_succession(node("boot-a"), payload(**changes)) is True
 
 
 @pytest.mark.parametrize(

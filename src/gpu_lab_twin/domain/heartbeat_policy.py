@@ -65,11 +65,11 @@ def validate_heartbeat(spec: NodeSpec, payload: HeartbeatPayload, at: datetime) 
     _require_within("storageFreeGb", payload.storage_free_gb, spec.storage_capacity_gb, spec.node_id)
 
 
-def check_boot_succession(node: NodeSnapshot, payload: HeartbeatPayload) -> None:
-    """Fail closed on any reboot evidence; recovery handling (AD-6) is not enabled in this build."""
+def check_boot_succession(node: NodeSnapshot, payload: HeartbeatPayload) -> bool:
+    """Validate AD-6 succession and report whether this heartbeat starts a new evidence epoch."""
     current = node.current_boot_session_id
     if current is None:
-        return
+        return False
     changed = payload.boot_session_id != current
     proven = payload.state_loss or payload.previous_boot_session_id == current
     if changed and not proven:
@@ -78,16 +78,7 @@ def check_boot_succession(node: NodeSnapshot, payload: HeartbeatPayload) -> None
             f"Boot session {payload.boot_session_id} does not prove succession from {current}.",
             details={"bootSessionId": payload.boot_session_id, "currentBootSessionId": current},
         )
-    if changed or payload.state_loss:
-        raise DomainError(
-            ErrorCode.ERR_POLICY_UNRESOLVED,
-            f"Policy {RECOVERY_POLICY_ID} is unresolved; reboot evidence was not applied and the node state is held.",
-            details={
-                "policyId": RECOVERY_POLICY_ID,
-                "bootSessionId": payload.boot_session_id,
-                "currentBootSessionId": current,
-            },
-        )
+    return changed or payload.state_loss
 
 
 def reasons_from(payload: HeartbeatPayload) -> frozenset[ReasonCode]:

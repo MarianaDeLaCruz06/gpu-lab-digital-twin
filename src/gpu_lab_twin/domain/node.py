@@ -31,6 +31,7 @@ class NodeSnapshot:
     reason_observations: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     # eventId of the heartbeat behind the current telemetry snapshot, if any.
     current_heartbeat_event_id: str | None = None
+    current_source_sequence: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -26,6 +26,7 @@ from gpu_lab_twin.domain.node import GpuReading, NodeSnapshot, NodeView
 from gpu_lab_twin.ports.outbound.node_repository import (
     AuditRecord,
     HeartbeatCommit,
+    IgnoredHeartbeatCommit,
     ProjectionUpdate,
     RecordedHeartbeat,
     TransitionCommit,
@@ -99,12 +100,18 @@ class SqlNodeRepository:
             open_alerts = list(open_alerts)
             evidence = {reason: tuple(explanation.get("evidenceIds", ())) for reason, explanation in open_alerts}
             observations = {reason: explanation.get("observedValues", {}) for reason, explanation in open_alerts}
-            current_event = session.scalar(
-                select(TelemetrySnapshotRow.event_id).where(
+            current = session.execute(
+                select(TelemetrySnapshotRow.event_id, TelemetrySnapshotRow.source_sequence).where(
                     TelemetrySnapshotRow.node_id == node_id, TelemetrySnapshotRow.is_current
                 )
+            ).one_or_none()
+            return _snapshot(
+                row,
+                evidence,
+                str(current.event_id) if current else None,
+                observations,
+                current.source_sequence if current else None,
             )
-            return _snapshot(row, evidence, str(current_event) if current_event else None, observations)
 
     def find_heartbeat(self, event_id: UUID) -> RecordedHeartbeat | None:
         with self._session_factory() as session:
@@ -119,6 +126,18 @@ class SqlNodeRepository:
                 node_id=found.node_id, payload_hash=found.payload_hash, response=found.body["response"]
             )
 
+    def has_boot_session(self, node_id: str, boot_session_id: str) -> bool:
+        with self._session_factory() as session:
+            count = session.scalar(
+                select(func.count())
+                .select_from(TelemetrySnapshotRow)
+                .where(
+                    TelemetrySnapshotRow.node_id == node_id,
+                    TelemetrySnapshotRow.boot_session_id == boot_session_id,
+                )
+            )
+            return bool(count)
+
     def commit_heartbeat(self, commit: HeartbeatCommit) -> int:
         try:
             with self._session_factory.begin() as session:
@@ -132,6 +151,25 @@ class SqlNodeRepository:
                     self._upsert_open_alert(session, node_id, reason, commit.at, commit.explanation)
                 self._append_audit(session, node_id, commit.audit, commit.at)
                 return revision
+        except IntegrityError as exc:
+            raise _integrity_error(exc, commit) from exc
+
+    def commit_ignored_heartbeat(self, commit: IgnoredHeartbeatCommit) -> None:
+        try:
+            with self._session_factory.begin() as session:
+                self._append_telemetry(session, commit, disposition="LATE_IGNORED", is_current=False)
+                self._append_audit(
+                    session,
+                    commit.node_id,
+                    AuditRecord(
+                        event_id=commit.payload.event_id,
+                        event_type="HeartbeatLateIgnored",
+                        rule_ids=tuple(commit.explanation["ruleIds"]),
+                        evidence_ids=tuple(commit.explanation["evidenceIds"]),
+                        body={"response": dict(commit.result), "transitioned": False},
+                    ),
+                    commit.at,
+                )
         except IntegrityError as exc:
             raise _integrity_error(exc, commit) from exc
 
@@ -212,6 +250,7 @@ class SqlNodeRepository:
                 current_boot_session_id=projection.current_boot_session_id,
                 last_accepted_event_at=projection.last_accepted_event_at,
                 last_accepted_receive_at=projection.last_accepted_receive_at,
+                **({"evidence_epoch": projection.evidence_epoch} if projection.evidence_epoch is not None else {}),
                 revision=NodeRow.revision + 1,
                 updated_at=at,
             )
@@ -227,17 +266,24 @@ class SqlNodeRepository:
         return revision
 
     @staticmethod
-    def _append_telemetry(session: Session, commit: HeartbeatCommit) -> None:
+    def _append_telemetry(
+        session: Session,
+        commit: HeartbeatCommit | IgnoredHeartbeatCommit,
+        *,
+        disposition: str | None = None,
+        is_current: bool = True,
+    ) -> None:
         payload = commit.payload
-        node_id = commit.projection.node_id
+        node_id = commit.projection.node_id if isinstance(commit, HeartbeatCommit) else commit.node_id
         telemetry_id = _derived_id("telemetry", payload.event_id)
         next_offset = session.scalar(select(func.coalesce(func.max(TelemetrySnapshotRow.ingest_offset) + 1, 0)))
 
-        session.execute(
-            update(TelemetrySnapshotRow)
-            .where(TelemetrySnapshotRow.node_id == node_id, TelemetrySnapshotRow.is_current)
-            .values(is_current=False)
-        )
+        if is_current:
+            session.execute(
+                update(TelemetrySnapshotRow)
+                .where(TelemetrySnapshotRow.node_id == node_id, TelemetrySnapshotRow.is_current)
+                .values(is_current=False)
+            )
         session.add(
             TelemetrySnapshotRow(
                 telemetry_id=telemetry_id,
@@ -256,8 +302,8 @@ class SqlNodeRepository:
                 driver_health=payload.driver_health,
                 storage_free_gb=payload.storage_free_gb,
                 external_context=dict(payload.external_context) if payload.external_context is not None else None,
-                disposition="APPLIED",
-                is_current=True,
+                disposition=disposition or commit.disposition,
+                is_current=is_current,
                 explanation=dict(commit.explanation),
             )
         )
@@ -351,6 +397,7 @@ def _snapshot(
     reason_evidence: dict[str, tuple[str, ...]] | None = None,
     current_heartbeat_event_id: str | None = None,
     reason_observations: dict[str, dict] | None = None,
+    current_source_sequence: int | None = None,
 ) -> NodeSnapshot:
     return NodeSnapshot(
         node_id=row.node_id,
@@ -368,6 +415,7 @@ def _snapshot(
         reason_evidence=reason_evidence or {},
         current_heartbeat_event_id=current_heartbeat_event_id,
         reason_observations=reason_observations or {},
+        current_source_sequence=current_source_sequence,
     )
 
 
@@ -385,7 +433,7 @@ def _violates(message: str, markers: tuple[str, ...]) -> bool:
     return any(marker in message for marker in markers)
 
 
-def _integrity_error(exc: IntegrityError, commit: HeartbeatCommit) -> DomainError:
+def _integrity_error(exc: IntegrityError, commit: HeartbeatCommit | IgnoredHeartbeatCommit) -> DomainError:
     message = str(exc.orig)
     if _violates(message, _SEQUENCE_CONSTRAINTS):
         return DomainError(

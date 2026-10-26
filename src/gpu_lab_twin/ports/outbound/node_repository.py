@@ -32,6 +32,7 @@ class ProjectionUpdate:
     current_boot_session_id: str | None
     last_accepted_event_at: datetime | None
     last_accepted_receive_at: datetime | None
+    evidence_epoch: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,7 +70,21 @@ class HeartbeatCommit:
     alert_reasons: tuple[str, ...]
     audit: AuditRecord
     at: datetime
+    disposition: str = "APPLIED"
     closed_alert_reasons: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class IgnoredHeartbeatCommit:
+    """One ordered stale-heartbeat record with no projection effects."""
+
+    node_id: str
+    payload: HeartbeatPayload
+    payload_hash: str
+    evidence_epoch: int
+    explanation: Mapping[str, Any]
+    result: Mapping[str, Any]
+    at: datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,6 +120,12 @@ class NodeRepository(Protocol):
         Raises ``DomainError(ERR_REVISION_CONFLICT)`` if the revision moved, and leaves nothing written.
         """
         ...
+
+    def commit_ignored_heartbeat(self, commit: IgnoredHeartbeatCommit) -> None:
+        """Persist LATE_IGNORED evidence/audit without mutating the projection."""
+        ...
+
+    def has_boot_session(self, node_id: str, boot_session_id: str) -> bool: ...
 
     def commit_transition(self, commit: TransitionCommit) -> int:
         """Apply atomically and return the new revision; ``ERR_REVISION_CONFLICT`` if the revision moved."""

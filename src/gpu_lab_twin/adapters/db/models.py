@@ -1,7 +1,7 @@
-"""SQLAlchemy mapping of docs/contracts/schema.sql (tables in Impl-1 scope).
+"""SQLAlchemy mapping of the complete canonical Solu-2 schema.
 
-PostgreSQL-only checks (regex patterns, array cardinality) live in the Alembic migration;
-the portable subset here is what the SQLite test database enforces.
+PostgreSQL-only checks (regex patterns, JSON operators, array cardinality) are attached
+conditionally; the portable subset is what the SQLite test database enforces.
 """
 
 from __future__ import annotations
@@ -59,6 +59,7 @@ class NodeRow(Base):
         CheckConstraint("evidence_epoch >= 0", name="nodes_evidence_epoch_ck"),
         CheckConstraint("heartbeat_interval_ms > 0", name="nodes_heartbeat_interval_ck"),
         CheckConstraint("storage_capacity_gb > 0", name="nodes_storage_capacity_ck"),
+        CheckConstraint("node_id ~ '^[a-z0-9][a-z0-9-]{0,62}$'", name="nodes_node_id_ck").ddl_if(dialect="postgresql"),
     )
 
     node_id: Mapped[str] = mapped_column(String(63), primary_key=True)
@@ -104,6 +105,13 @@ class TelemetrySnapshotRow(Base):
         CheckConstraint("source_sequence >= 0", name="telemetry_source_sequence_ck"),
         CheckConstraint("evidence_epoch >= 0", name="telemetry_evidence_epoch_ck"),
         CheckConstraint("storage_free_gb >= 0", name="telemetry_storage_free_ck"),
+        CheckConstraint("payload_hash ~ '^[0-9a-f]{64}$'", name="telemetry_payload_hash_ck").ddl_if(
+            dialect="postgresql"
+        ),
+        CheckConstraint(
+            "external_context IS NULL OR external_context ->> 'source' = 'EXTERNAL_MOCK'",
+            name="telemetry_external_source_ck",
+        ).ddl_if(dialect="postgresql"),
         Index(
             "telemetry_one_current_per_node_uq",
             "node_id",
@@ -169,6 +177,8 @@ class NodeStateHistoryRow(Base):
         UniqueConstraint("source_event_id", "node_id", "result_state"),
         CheckConstraint("node_revision > 0", name="history_node_revision_ck"),
         CheckConstraint("schema_version = '1.0'", name="history_schema_version_ck"),
+        CheckConstraint("cardinality(rule_ids) > 0", name="history_rule_ids_ck").ddl_if(dialect="postgresql"),
+        CheckConstraint("cardinality(evidence_ids) > 0", name="history_evidence_ids_ck").ddl_if(dialect="postgresql"),
     )
 
     transition_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
@@ -185,6 +195,43 @@ class NodeStateHistoryRow(Base):
     occurred_at: Mapped[datetime] = mapped_column(UtcDateTime, nullable=False)
     schema_version: Mapped[str] = mapped_column(String(16), nullable=False)
     created_at: Mapped[datetime] = _created_at()
+
+
+class MaintenanceLockRow(Base):
+    __tablename__ = "maintenance_locks"
+    __table_args__ = (
+        CheckConstraint("expected_node_revision >= 0", name="maintenance_expected_revision_ck"),
+        CheckConstraint(
+            "(active AND released_at IS NULL) OR (NOT active AND released_at IS NOT NULL)",
+            name="maintenance_release_ck",
+        ),
+        CheckConstraint("length(trim(reason)) > 0", name="maintenance_reason_ck"),
+        CheckConstraint("length(trim(actor)) > 0", name="maintenance_actor_ck"),
+        CheckConstraint("request_hash ~ '^[0-9a-f]{64}$'", name="maintenance_request_hash_ck").ddl_if(
+            dialect="postgresql"
+        ),
+        Index(
+            "maintenance_locks_one_active_uq",
+            "node_id",
+            unique=True,
+            postgresql_where=text("active"),
+            sqlite_where=text("active"),
+        ),
+    )
+
+    lock_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    request_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, unique=True)
+    request_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False)
+    node_id: Mapped[str] = mapped_column(ForeignKey("nodes.node_id", ondelete="RESTRICT"), nullable=False)
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
+    actor: Mapped[str] = mapped_column(String(128), nullable=False)
+    acquired_at: Mapped[datetime] = mapped_column(UtcDateTime, nullable=False)
+    expected_node_revision: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    released_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    release_request_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, unique=True)
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _created_at()
 
 
 class AlertRow(Base):
