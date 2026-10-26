@@ -37,14 +37,14 @@
 #   1-3 depends only on last_accepted_receive_at written by 1-1, and stale or
 #   out-of-order heartbeat containment remains a documented gap until 1-2.
 generated: 10-15-2026 16:02
-last_updated: 10-25-2026 21:22
+last_updated: 10-25-2026 22:30
 project: gpu-lab-digital-twin
 project_key: NOKEY
 tracking_system: file-system
 story_location: docs
 development_status:
-  epic-1: backlog
-  1-1-see-the-complete-simulated-fleet: ready-for-dev
+  epic-1: in-progress
+  1-1-see-the-complete-simulated-fleet: review
   1-2-keep-telemetry-ordered-and-exactly-once: backlog
   1-3-detect-silence-at-the-exact-boundary: ready-for-dev
   epic-1-retrospective: optional

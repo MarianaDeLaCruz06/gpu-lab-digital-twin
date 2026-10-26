@@ -8,7 +8,7 @@ from fastapi import FastAPI
 
 from gpu_lab_twin import __version__
 from gpu_lab_twin.api.errors import install_error_handlers
-from gpu_lab_twin.api.routes import health
+from gpu_lab_twin.api.routes import health, nodes, telemetry
 from gpu_lab_twin.bootstrap import Container, build_container
 from gpu_lab_twin.config.settings import get_settings
 
@@ -37,4 +37,6 @@ def create_app(container: Container | None = None) -> FastAPI:
     )
     install_error_handlers(app)
     app.include_router(health.router)
+    app.include_router(telemetry.router)
+    app.include_router(nodes.router)
     return app

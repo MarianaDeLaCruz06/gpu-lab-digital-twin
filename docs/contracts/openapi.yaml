@@ -4,8 +4,9 @@ info:
   version: 1.1.0
   description: >-
     Local simulated API; no production authorization or hardware integration.
-    1.1.0 (Impl-1) adds the operational probes /health and /ready to the Solu-2 1.0.0 baseline
-    (planning/detailed-design/schemas/openapi.yaml); domain operations are unchanged.
+    1.1.0 (Impl-1) adds the operational probes /health and /ready and the read-only fleet projection
+    GET /v1/nodes (ARCHITECTURE §9.4) to the Solu-2 1.0.0 baseline (planning/detailed-design/schemas/openapi.yaml);
+    the three mutation operations are unchanged.
 paths:
   /health:
     get:
@@ -20,6 +21,16 @@ paths:
       description: Ready only when the database answers and the stored fleet equals the canonical 32-node / 33-GPU inventory.
       responses:
         '200': {description: Ready to accept input, content: {application/json: {schema: {$ref: '#/components/schemas/ReadinessResponse'}}}}
+        '503': {$ref: '#/components/responses/IngressUnavailable'}
+  /v1/nodes:
+    get:
+      operationId: listFleet
+      tags: [fleet]
+      description: >-
+        One consistent read of all configured nodes in inventory order (ARCHITECTURE §9.4; added in 1.1.0).
+        Telemetry not yet received is null, never zero.
+      responses:
+        '200': {description: Complete fleet projection, content: {application/json: {schema: {$ref: '#/components/schemas/FleetResponse'}}}}
         '503': {$ref: '#/components/responses/IngressUnavailable'}
   /v1/nodes/{nodeId}/heartbeats:
     post:
@@ -138,6 +149,39 @@ components:
         status: {const: ready}
         nodes: {type: integer, minimum: 0}
         gpuDevices: {type: integer, minimum: 0}
+    GpuSummary:
+      type: object
+      additionalProperties: false
+      required: [gpuDeviceId, vramCapacityGb, temperatureC, vramOccupiedGb]
+      properties:
+        gpuDeviceId: {type: string}
+        vramCapacityGb: {type: number, enum: [24, 48]}
+        temperatureC: {anyOf: [{type: number, minimum: 0}, {type: 'null'}]}
+        vramOccupiedGb: {anyOf: [{type: number, minimum: 0}, {type: 'null'}]}
+    NodeSummary:
+      type: object
+      additionalProperties: false
+      required: [nodeId, kind, state, cordoned, connectivityStatus, nodeRevision, activeReasonCodes, lastHeartbeatReceivedAt, storageCapacityGb, storageFreeGb, gpus]
+      properties:
+        nodeId: {type: string}
+        kind: {type: string, enum: [WORKSTATION, SERVER]}
+        state: {$ref: '#/components/schemas/NodeState'}
+        cordoned: {type: boolean}
+        connectivityStatus: {type: string, enum: [UNKNOWN, ONLINE, SILENT, CONNECTIVITY_UNSTABLE]}
+        nodeRevision: {type: integer, minimum: 0}
+        activeReasonCodes: {type: array, items: {type: string}}
+        lastHeartbeatReceivedAt: {anyOf: [{type: string, format: date-time}, {type: 'null'}]}
+        storageCapacityGb: {type: number}
+        storageFreeGb: {anyOf: [{type: number, minimum: 0}, {type: 'null'}]}
+        gpus: {type: array, minItems: 1, maxItems: 2, items: {$ref: '#/components/schemas/GpuSummary'}}
+    FleetResponse:
+      type: object
+      additionalProperties: false
+      required: [generatedAt, nodeCount, nodes]
+      properties:
+        generatedAt: {type: string, format: date-time}
+        nodeCount: {type: integer, const: 32}
+        nodes: {type: array, minItems: 32, maxItems: 32, items: {$ref: '#/components/schemas/NodeSummary'}}
     NodeState:
       type: string
       enum: [UNKNOWN, HEALTHY, DEGRADED, RECOVERING, DRAINING, MAINTENANCE, OFFLINE]

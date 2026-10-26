@@ -17,4 +17,5 @@ COPY fixtures ./fixtures
 ENV GPU_TWIN_FLEET_FIXTURE_PATH=/app/fixtures/fleet.json
 
 EXPOSE 8000
+# Single worker on purpose: writes are serialized by an in-process lock (AD-1, NFR-12 process-local baseline).
 CMD ["sh", "-c", "alembic upgrade head && uvicorn gpu_lab_twin.main:app --host 0.0.0.0 --port 8000"]

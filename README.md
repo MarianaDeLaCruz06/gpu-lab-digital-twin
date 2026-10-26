@@ -17,6 +17,14 @@ pytest
 
 The tests use an in-memory SQLite database and a fake clock, so they need no Docker, network, or wall-clock waits.
 
+To run the same suite against PostgreSQL, point `GPU_TWIN_TEST_DATABASE_URL` at an empty database whose name ends in `_test`. The suite drops and recreates the schema for every test:
+
+```bash
+docker compose up -d db
+docker compose exec db createdb -U twin gpu_lab_twin_test
+GPU_TWIN_TEST_DATABASE_URL=postgresql+psycopg://twin:twin@localhost:5433/gpu_lab_twin_test pytest
+```
+
 ### Run the service with PostgreSQL
 
 ```bash
@@ -63,6 +71,8 @@ docs/                 PRD, active contracts, sprint-status.yaml, AI decision log
 ```
 
 `tests/unit/test_architecture.py` enforces the dependency rule: `domain/`, `ports/` and `application/` never import FastAPI, Pydantic, SQLAlchemy, adapters, or the wall clock.
+
+**Single-process prototype.** Heartbeat writes are serialized by one in-process lock that also assigns the global `ingest_offset` (AD-1). Run exactly one service process (`uvicorn` without `--workers`, one container). Revision compare-and-swap and unique indexes still reject a second writer rather than corrupting state, but a multi-process deployment would need a database-level sequencer. This matches the PRD's process-local baseline (NFR-12).
 
 Every error response uses the contract `ErrorBody` (`code`, `message`, `retryable`, `details`); no stack trace reaches a client.
 
