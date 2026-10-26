@@ -93,6 +93,7 @@ class HeartbeatService:
                 prior_state=node.state,
                 decision=decision,
                 retained_evidence={reason: node.reason_evidence.get(reason, ()) for reason in retained},
+                retained_observations={reason: node.reason_observations.get(reason, {}) for reason in retained},
                 policy_version=self._policy_version,
             ).as_document()
             result = HeartbeatResult(

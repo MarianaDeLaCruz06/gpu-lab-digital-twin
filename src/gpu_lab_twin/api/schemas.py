@@ -10,11 +10,16 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 from gpu_lab_twin.domain.errors import ErrorCode
 from gpu_lab_twin.domain.fleet import NodeKind
-from gpu_lab_twin.domain.heartbeat import GpuSample, HeartbeatPayload
+from gpu_lab_twin.domain.heartbeat import MEASUREMENT_DECIMALS, GpuSample, HeartbeatPayload
 from gpu_lab_twin.domain.node_state import ConnectivityStatus, DriverHealth, NodeState
 from gpu_lab_twin.ports.inbound.fleet import FleetView
 
 NODE_ID_PATTERN = r"^[a-z0-9][a-z0-9-]{0,62}$"
+
+
+def _stored(value: float) -> float:
+    """Round to the persisted precision, so the thermal and capacity rules judge the recorded evidence."""
+    return round(value, MEASUREMENT_DECIMALS)
 
 
 class StrictDTO(BaseModel):
@@ -95,9 +100,11 @@ class IngestHeartbeatRequest(StrictDTO):
             previous_boot_session_id=self.previousBootSessionId,
             state_loss=self.stateLoss,
             source_sequence=self.sourceSequence,
-            gpu_samples=tuple(GpuSample(s.gpuDeviceId, s.temperatureC, s.vramOccupiedGb) for s in self.gpuSamples),
+            gpu_samples=tuple(
+                GpuSample(s.gpuDeviceId, _stored(s.temperatureC), _stored(s.vramOccupiedGb)) for s in self.gpuSamples
+            ),
             driver_health=self.driverHealth,
-            storage_free_gb=self.storageFreeGb,
+            storage_free_gb=_stored(self.storageFreeGb),
             external_context=self.externalContext.utc_document() if self.externalContext else None,
         )
 

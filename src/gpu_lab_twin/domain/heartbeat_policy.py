@@ -12,6 +12,8 @@ from gpu_lab_twin.domain.node import NodeSnapshot
 from gpu_lab_twin.domain.node_state import DriverHealth, ReasonCode
 
 RECOVERY_POLICY_ID = "ODD-3"
+# AD-3: absolute threshold; a reading must be strictly above it. Exactly 88 °C is not anomalous.
+THERMAL_THRESHOLD_C = 88
 SILENCE_INTERVALS = 3
 
 
@@ -94,6 +96,8 @@ def reasons_from(payload: HeartbeatPayload) -> frozenset[ReasonCode]:
         reasons.add(ReasonCode.DRIVER_UNHEALTHY)
     elif payload.driver_health is DriverHealth.UNKNOWN:
         reasons.add(ReasonCode.DRIVER_HEALTH_UNKNOWN)
+    if payload.max_temperature_c > THERMAL_THRESHOLD_C:
+        reasons.add(ReasonCode.THERMAL)
     return frozenset(reasons)
 
 

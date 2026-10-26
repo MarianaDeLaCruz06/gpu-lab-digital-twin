@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 from gpu_lab_twin.domain.fleet import NodeKind
 from gpu_lab_twin.domain.node_state import ConnectivityStatus, NodeState
@@ -26,6 +27,8 @@ class NodeSnapshot:
     active_reason_codes: tuple[str, ...]
     # Evidence IDs that last observed each active reason (taken from its open alert episode).
     reason_evidence: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    # observedValues recorded by each active reason's open alert (the facts that last activated it).
+    reason_observations: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     # eventId of the heartbeat behind the current telemetry snapshot, if any.
     current_heartbeat_event_id: str | None = None
 

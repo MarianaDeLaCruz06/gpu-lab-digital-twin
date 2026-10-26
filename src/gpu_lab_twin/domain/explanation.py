@@ -8,8 +8,8 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from gpu_lab_twin.domain.heartbeat import HeartbeatPayload
-from gpu_lab_twin.domain.heartbeat_policy import RECOVERY_POLICY_ID
-from gpu_lab_twin.domain.node_state import DEGRADATION_REASONS, Decision, NodeState, ReasonCode
+from gpu_lab_twin.domain.heartbeat_policy import RECOVERY_POLICY_ID, THERMAL_THRESHOLD_C
+from gpu_lab_twin.domain.node_state import DRIVER_REASONS, Decision, NodeState, ReasonCode
 
 
 class ExplanationIncomplete(ValueError):
@@ -50,6 +50,13 @@ class Explanation:
 
 
 UNRESOLVED_CLEAR_RULE = "ERR_POLICY_UNRESOLVED"
+# Open design decisions that must define each reason's clear rule; none is approved yet.
+CLEAR_POLICY_IDS = {
+    ReasonCode.THERMAL: "ODD-4",
+    ReasonCode.RECOVERY_PENDING: RECOVERY_POLICY_ID,
+    ReasonCode.DRIVER_UNHEALTHY: "UNASSIGNED",
+    ReasonCode.DRIVER_HEALTH_UNKNOWN: "UNASSIGNED",
+}
 
 
 def explain_heartbeat_decision(
@@ -60,6 +67,7 @@ def explain_heartbeat_decision(
     decision: Decision,
     retained_evidence: Mapping[ReasonCode, tuple[str, ...]],
     policy_version: str,
+    retained_observations: Mapping[ReasonCode, Mapping[str, Any]] | None = None,
 ) -> Explanation:
     """Render the reducer's decision for one accepted heartbeat from the facts it evaluated.
 
@@ -70,6 +78,7 @@ def explain_heartbeat_decision(
     observed: dict[str, Any] = {
         "driverHealth": payload.driver_health.value,
         "temperatureC": payload.max_temperature_c,
+        "hottestGpuDeviceId": payload.hottest_sample.gpu_device_id,
         "gpuSamples": [
             {"gpuDeviceId": s.gpu_device_id, "temperatureC": s.temperature_c, "vramOccupiedGb": s.vram_occupied_gb}
             for s in payload.gpu_samples
@@ -81,14 +90,24 @@ def explain_heartbeat_decision(
     thresholds: dict[str, Any] = {}
     rule_ids = list(decision.rule_ids)
 
-    if DEGRADATION_REASONS & set(decision.reason_codes):
+    if DRIVER_REASONS & set(decision.reason_codes):
         thresholds["driverHealth"] = {"operator": "==", "value": "HEALTHY"}
+    if ReasonCode.THERMAL in decision.reason_codes:
+        thresholds["temperatureC"] = {"operator": ">", "value": THERMAL_THRESHOLD_C}
     if ReasonCode.RECOVERY_PENDING in decision.reason_codes:
         thresholds["recoveryPolicy"] = {"policyId": RECOVERY_POLICY_ID, "status": "unresolved"}
     evidence_ids = [str(payload.event_id)]
     if retained_reasons:
         rule_ids.append(UNRESOLVED_CLEAR_RULE)
-        thresholds["clearPolicy"] = "unresolved"
+        thresholds["clearPolicy"] = {
+            reason.value: {"policyId": CLEAR_POLICY_IDS.get(reason, "UNASSIGNED"), "status": "unresolved"}
+            for reason in sorted(retained_reasons)
+        }
+        if ReasonCode.THERMAL in retained_reasons:
+            # The current reading may be cool; cite the reading that activated the thermal reason.
+            activating = (retained_observations or {}).get(ReasonCode.THERMAL, {})
+            observed["activatingTemperatureC"] = activating.get("temperatureC")
+            observed["activatingGpuDeviceId"] = activating.get("hottestGpuDeviceId")
         observed["retainedReasonEvidence"] = {
             reason.value: list(retained_evidence[reason]) for reason in sorted(retained_reasons)
         }

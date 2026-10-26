@@ -12,6 +12,9 @@ from uuid import UUID
 
 from gpu_lab_twin.domain.node_state import DriverHealth
 
+# telemetry columns are NUMERIC(_, 3): decisions must use exactly the value that is stored as evidence.
+MEASUREMENT_DECIMALS = 3
+
 
 @dataclass(frozen=True, slots=True)
 class GpuSample:
@@ -36,8 +39,14 @@ class HeartbeatPayload:
     external_context: Mapping[str, Any] | None = None
 
     @property
+    def hottest_sample(self) -> GpuSample:
+        # Ties resolve to the lexicographically lowest device ID so explanations do not depend on sample order.
+        by_device = sorted(self.gpu_samples, key=lambda sample: sample.gpu_device_id)
+        return max(by_device, key=lambda sample: sample.temperature_c)
+
+    @property
     def max_temperature_c(self) -> float:
-        return max(sample.temperature_c for sample in self.gpu_samples)
+        return self.hottest_sample.temperature_c
 
     def canonical_hash(self, node_id: str) -> str:
         """SHA-256 over a normalized, key-sorted JSON rendering; identifies "the same payload" for idempotency.

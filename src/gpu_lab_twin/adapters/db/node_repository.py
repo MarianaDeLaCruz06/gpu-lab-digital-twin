@@ -96,13 +96,15 @@ class SqlNodeRepository:
                     AlertRow.node_id == node_id, AlertRow.closed_at.is_(None)
                 )
             )
+            open_alerts = list(open_alerts)
             evidence = {reason: tuple(explanation.get("evidenceIds", ())) for reason, explanation in open_alerts}
+            observations = {reason: explanation.get("observedValues", {}) for reason, explanation in open_alerts}
             current_event = session.scalar(
                 select(TelemetrySnapshotRow.event_id).where(
                     TelemetrySnapshotRow.node_id == node_id, TelemetrySnapshotRow.is_current
                 )
             )
-            return _snapshot(row, evidence, str(current_event) if current_event else None)
+            return _snapshot(row, evidence, str(current_event) if current_event else None, observations)
 
     def find_heartbeat(self, event_id: UUID) -> RecordedHeartbeat | None:
         with self._session_factory() as session:
@@ -348,6 +350,7 @@ def _snapshot(
     row: NodeRow,
     reason_evidence: dict[str, tuple[str, ...]] | None = None,
     current_heartbeat_event_id: str | None = None,
+    reason_observations: dict[str, dict] | None = None,
 ) -> NodeSnapshot:
     return NodeSnapshot(
         node_id=row.node_id,
@@ -364,6 +367,7 @@ def _snapshot(
         active_reason_codes=tuple(row.active_reason_codes or ()),
         reason_evidence=reason_evidence or {},
         current_heartbeat_event_id=current_heartbeat_event_id,
+        reason_observations=reason_observations or {},
     )
 
 
