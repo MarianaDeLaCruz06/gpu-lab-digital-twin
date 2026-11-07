@@ -3,14 +3,16 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+from pathlib import Path
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from gpu_lab_twin import __version__
 from gpu_lab_twin.api.errors import install_error_handlers
-from gpu_lab_twin.api.routes import health, nodes, telemetry
+from gpu_lab_twin.api.routes import health, maintenance, nodes, telemetry, ui
 from gpu_lab_twin.api.scheduler import run_periodically
 from gpu_lab_twin.bootstrap import Container, build_container
 from gpu_lab_twin.config.settings import get_settings
@@ -51,4 +53,7 @@ def create_app(container: Container | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(telemetry.router)
     app.include_router(nodes.router)
+    app.include_router(maintenance.router)
+    app.include_router(ui.router)
+    app.mount("/static", StaticFiles(directory=Path(__file__).resolve().parent / "static"), name="static")
     return app

@@ -1,0 +1,14 @@
+{
+  "name": "gpu-lab-digital-twin-e2e",
+  "private": true,
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug",
+    "test:backend": "uv run pytest",
+    "test:coverage": "uv run pytest --cov=gpu_lab_twin --cov-branch"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
+  }
+}
