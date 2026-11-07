@@ -11,7 +11,8 @@ from gpu_lab_twin.domain.fleet import FleetInventory
 from gpu_lab_twin.domain.heartbeat import HeartbeatPayload
 from gpu_lab_twin.domain.heartbeat_policy import check_boot_succession, reasons_from, validate_heartbeat
 from gpu_lab_twin.domain.node import NodeSnapshot
-from gpu_lab_twin.domain.node_state import ConnectivityStatus, Decision, NodeFacts, ReasonCode, evaluate
+from gpu_lab_twin.domain.node_state import ConnectivityStatus, Decision, NodeFacts, NodeState, ReasonCode, evaluate
+from gpu_lab_twin.domain.telemetry_downsampling import TelemetryDownsampler
 from gpu_lab_twin.ports.inbound.heartbeat import HeartbeatResult
 from gpu_lab_twin.ports.outbound.clock import Clock
 from gpu_lab_twin.ports.outbound.node_repository import (
@@ -39,12 +40,14 @@ class HeartbeatService:
         clock: Clock,
         policy_version: str,
         write_lock: threading.Lock,
+        downsampler: TelemetryDownsampler | None = None,
     ) -> None:
         self._inventory = inventory
         self._nodes = nodes
         self._clock = clock
         self._policy_version = policy_version
         self._write_lock = write_lock
+        self._downsampler = downsampler
 
     def ingest_heartbeat(self, node_id: str, payload: HeartbeatPayload) -> HeartbeatResult:
         spec = self._inventory.node(node_id)
@@ -86,7 +89,9 @@ class HeartbeatService:
 
             boot_change = check_boot_succession(node, payload)
 
-            prior_reasons = frozenset(ReasonCode(code) for code in node.active_reason_codes)
+            known_reasons = {reason.value for reason in ReasonCode}
+            retained_status_reasons = tuple(code for code in node.active_reason_codes if code not in known_reasons)
+            prior_reasons = frozenset(ReasonCode(code) for code in node.active_reason_codes if code in known_reasons)
             current_reasons = reasons_from(payload)
             closed: tuple[ReasonCode, ...] = ()
             if boot_change:
@@ -100,7 +105,15 @@ class HeartbeatService:
                 current_reasons |= {ReasonCode.RECOVERY_PENDING}
                 closed = (ReasonCode.SILENT,)
             retained = prior_reasons - current_reasons
-            decision = evaluate(NodeFacts(has_current_heartbeat=True, reasons=prior_reasons | current_reasons))
+            maintenance_active = node.state in {NodeState.DRAINING, NodeState.MAINTENANCE}
+            decision = evaluate(
+                NodeFacts(
+                    has_current_heartbeat=True,
+                    reasons=prior_reasons | current_reasons,
+                    maintenance_active=maintenance_active,
+                    active_workload_count=0 if node.state is NodeState.MAINTENANCE else None,
+                )
+            )
             explanation = explain_heartbeat_decision(
                 node_id=node_id,
                 payload=payload,
@@ -143,8 +156,11 @@ class HeartbeatService:
                     result,
                     at,
                     evidence_epoch=node.evidence_epoch + 1 if boot_change else node.evidence_epoch,
+                    retained_status_reasons=retained_status_reasons,
                 )
             )
+            if self._downsampler is not None:
+                self._downsampler.observe(node_id, payload)
             return result
 
     def _record_late(
@@ -208,6 +224,7 @@ def _commit(
     result: HeartbeatResult,
     at: datetime,
     evidence_epoch: int,
+    retained_status_reasons: tuple[str, ...] = (),
 ) -> HeartbeatCommit:
     transitioned = (decision.state, decision.cordoned) != (node.state, node.cordoned)
     rule_ids = tuple(explanation["ruleIds"])
@@ -230,7 +247,7 @@ def _commit(
             state=decision.state,
             cordoned=decision.cordoned,
             connectivity=result.connectivity_status,
-            active_reason_codes=tuple(decision.reason_codes),
+            active_reason_codes=tuple(reason.value for reason in decision.reason_codes) + retained_status_reasons,
             current_boot_session_id=payload.boot_session_id,
             last_accepted_event_at=payload.occurred_at,
             last_accepted_receive_at=at,
