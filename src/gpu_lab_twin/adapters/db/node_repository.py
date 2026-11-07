@@ -15,6 +15,7 @@ from gpu_lab_twin.adapters.db.models import (
     AlertRow,
     AuditEventRow,
     GpuDeviceRow,
+    MaintenanceLockRow,
     NodeRow,
     NodeStateHistoryRow,
     TelemetryGpuSampleRow,
@@ -22,7 +23,9 @@ from gpu_lab_twin.adapters.db.models import (
 )
 from gpu_lab_twin.domain.errors import DomainError, ErrorCode
 from gpu_lab_twin.domain.fleet import FleetInventory
+from gpu_lab_twin.domain.maintenance import MaintenanceResult, MaintenanceWindow, WorkloadSnapshot, maintenance_state
 from gpu_lab_twin.domain.node import GpuReading, NodeSnapshot, NodeView
+from gpu_lab_twin.domain.node_state import NodeState
 from gpu_lab_twin.ports.outbound.node_repository import (
     AuditRecord,
     ConnectivityObservationCommit,
@@ -252,6 +255,173 @@ class SqlNodeRepository:
                 "The connectivity observation was not accepted; storage rejected the write.",
             ) from exc
 
+    def schedule_maintenance(self, node_id: str, window: MaintenanceWindow, at: datetime) -> MaintenanceResult:
+        request_hash = window.canonical_hash(node_id)
+        with self._session_factory.begin() as session:
+            existing = session.scalar(select(MaintenanceLockRow).where(MaintenanceLockRow.request_id == window.request_id))
+            if existing is not None:
+                if existing.request_hash != request_hash:
+                    raise DomainError(
+                        ErrorCode.ERR_IDEMPOTENCY_CONFLICT,
+                        f"{window.request_id} was already used for a different maintenance request.",
+                    )
+                return _maintenance_result(window, existing, session.get(NodeRow, node_id), "DUPLICATE", None)
+            active = session.scalar(
+                select(MaintenanceLockRow).where(
+                    MaintenanceLockRow.node_id == node_id, MaintenanceLockRow.active.is_(True)
+                )
+            )
+            if active is not None:
+                raise DomainError(
+                    ErrorCode.ERR_MAINTENANCE_CONFLICT,
+                    f"Node {node_id} already has active maintenance lock {active.lock_id}.",
+                    details={"lockId": str(active.lock_id)},
+                )
+            node = session.get(NodeRow, node_id)
+            if node is None:
+                raise DomainError(ErrorCode.ERR_UNKNOWN_NODE, f"Node {node_id} is not configured.")
+            if node.revision != window.expected_node_revision:
+                raise DomainError(
+                    ErrorCode.ERR_REVISION_CONFLICT,
+                    f"Expected revision {window.expected_node_revision}; current revision is {node.revision}.",
+                    details={"expected": window.expected_node_revision, "actual": node.revision},
+                )
+            prior_state, prior_cordoned = node.state, node.cordoned
+            lock = MaintenanceLockRow(
+                lock_id=_derived_id("maintenance-lock", window.request_id),
+                request_id=window.request_id,
+                request_hash=request_hash,
+                node_id=node_id,
+                reason=window.reason.strip(),
+                actor=window.actor.strip(),
+                acquired_at=window.starts_at,
+                expected_node_revision=window.expected_node_revision,
+                active=True,
+                updated_at=at,
+            )
+            session.add(lock)
+            node.state = NodeState.DRAINING
+            node.cordoned = True
+            node.active_reason_codes = sorted(set(node.active_reason_codes or ()) | {"DRAIN_STATUS_UNKNOWN"})
+            node.revision += 1
+            node.updated_at = at
+            result = _maintenance_result(window, lock, node, "SCHEDULED", None)
+            session.add(
+                NodeStateHistoryRow(
+                    transition_id=_derived_id("transition", window.event_id, node_id),
+                    source_event_id=window.event_id,
+                    node_id=node_id,
+                    prior_state=prior_state,
+                    result_state=node.state,
+                    prior_cordoned=prior_cordoned,
+                    result_cordoned=True,
+                    node_revision=node.revision,
+                    rule_ids=["MAINTENANCE_DRAIN_ACTIVE"],
+                    evidence_ids=[str(window.event_id), str(lock.lock_id)],
+                    explanation=result.explanation,
+                    occurred_at=at,
+                    schema_version=SCHEMA_VERSION,
+                )
+            )
+            self._append_audit(
+                session,
+                node_id,
+                AuditRecord(
+                    event_id=window.event_id,
+                    event_type="MaintenanceDrainScheduled",
+                    rule_ids=("MAINTENANCE_DRAIN_ACTIVE",),
+                    evidence_ids=(str(window.event_id), str(lock.lock_id)),
+                    body={"requestId": str(window.request_id), "response": result.as_document()},
+                ),
+                at,
+            )
+            return result
+
+    def apply_workload_snapshot(self, snapshot: WorkloadSnapshot, at: datetime) -> MaintenanceResult:
+        with self._session_factory.begin() as session:
+            duplicate = session.scalar(select(AuditEventRow).where(AuditEventRow.event_id == snapshot.event_id))
+            lock = session.scalar(
+                select(MaintenanceLockRow).where(
+                    MaintenanceLockRow.node_id == snapshot.node_id, MaintenanceLockRow.active.is_(True)
+                )
+            )
+            if lock is None:
+                raise DomainError(
+                    ErrorCode.ERR_EVIDENCE_NOT_FOUND, f"Node {snapshot.node_id} has no active maintenance lock."
+                )
+            node = session.get(NodeRow, snapshot.node_id)
+            if duplicate is not None:
+                return _snapshot_result(snapshot, lock, node, "DUPLICATE")
+            prior_revisions = [
+                row.body.get("sourceRevision", -1)
+                for row in session.scalars(
+                    select(AuditEventRow).where(
+                        AuditEventRow.node_id == snapshot.node_id,
+                        AuditEventRow.event_type == "WorkloadSnapshotReceived",
+                    )
+                )
+            ]
+            if prior_revisions and snapshot.source_revision <= max(prior_revisions):
+                raise DomainError(
+                    ErrorCode.ERR_LATE_EVENT,
+                    f"Workload sourceRevision {snapshot.source_revision} is not newer than {max(prior_revisions)}.",
+                )
+            state = maintenance_state(lock_acquired_at=lock.acquired_at, snapshot=snapshot)
+            if state is not NodeState.MAINTENANCE and snapshot.active_workload_count == 0:
+                raise DomainError(
+                    ErrorCode.ERR_EVIDENCE_NOT_FOUND,
+                    "A workload snapshot observed before lock acquisition cannot complete the drain.",
+                )
+            prior_state, prior_cordoned = node.state, node.cordoned
+            node.state = state
+            node.cordoned = True
+            reasons = set(node.active_reason_codes or ())
+            if state is NodeState.MAINTENANCE:
+                reasons.discard("DRAIN_STATUS_UNKNOWN")
+            node.active_reason_codes = sorted(reasons)
+            node.revision += 1
+            node.updated_at = at
+            result = _snapshot_result(snapshot, lock, node, "APPLIED")
+            if (prior_state, prior_cordoned) != (node.state, node.cordoned):
+                session.add(
+                    NodeStateHistoryRow(
+                        transition_id=_derived_id("transition", snapshot.event_id, snapshot.node_id),
+                        source_event_id=snapshot.event_id,
+                        node_id=snapshot.node_id,
+                        prior_state=prior_state,
+                        result_state=node.state,
+                        prior_cordoned=prior_cordoned,
+                        result_cordoned=True,
+                        node_revision=node.revision,
+                        rule_ids=["MAINTENANCE_FRESH_ZERO"],
+                        evidence_ids=[str(snapshot.event_id), str(lock.lock_id)],
+                        explanation=result.explanation,
+                        occurred_at=at,
+                        schema_version=SCHEMA_VERSION,
+                    )
+                )
+            self._append_audit(
+                session,
+                snapshot.node_id,
+                AuditRecord(
+                    event_id=snapshot.event_id,
+                    event_type="WorkloadSnapshotReceived",
+                    rule_ids=("MAINTENANCE_FRESH_ZERO" if state is NodeState.MAINTENANCE else "MAINTENANCE_DRAIN_ACTIVE",),
+                    evidence_ids=(str(snapshot.event_id), str(lock.lock_id)),
+                    body={"sourceRevision": snapshot.source_revision, "response": result.as_document()},
+                ),
+                at,
+            )
+            return result
+
+    def count_active_maintenance_locks(self, node_id: str) -> int:
+        with self._session_factory() as session:
+            return session.scalar(
+                select(func.count()).select_from(MaintenanceLockRow).where(
+                    MaintenanceLockRow.node_id == node_id, MaintenanceLockRow.active.is_(True)
+                )
+            ) or 0
+
     def list_fleet(self) -> tuple[NodeView, ...]:
         with self._session_factory() as session:
             if session.get_bind().dialect.name == "postgresql":
@@ -453,6 +623,78 @@ class SqlNodeRepository:
                 body=dict(audit.body),
             )
         )
+
+
+def _maintenance_explanation(
+    *, node: NodeRow, evidence_ids: list[str], workload_count: int | None, state: NodeState
+) -> dict:
+    return {
+        "ruleIds": ["MAINTENANCE_FRESH_ZERO" if state is NodeState.MAINTENANCE else "MAINTENANCE_DRAIN_ACTIVE"],
+        "observedValues": {"activeWorkloadCount": workload_count},
+        "thresholds": {"completion": {"operator": "equals", "value": 0}},
+        "expectedState": state.value,
+        "evidenceIds": evidence_ids,
+        "policyVersion": "ad-7-v1",
+        "priorState": node.state.value,
+        "resultState": state.value,
+        "summary": (
+            f"{node.node_id} entered MAINTENANCE after a fresh zero-workload snapshot."
+            if state is NodeState.MAINTENANCE
+            else f"{node.node_id} is DRAINING while workload evidence is unknown or positive."
+        ),
+    }
+
+
+def _maintenance_result(
+    window: MaintenanceWindow,
+    lock: MaintenanceLockRow,
+    node: NodeRow,
+    outcome: str,
+    workload_count: int | None,
+) -> MaintenanceResult:
+    return MaintenanceResult(
+        event_id=window.event_id,
+        request_id=window.request_id,
+        node_id=node.node_id,
+        outcome=outcome,
+        lock_id=lock.lock_id,
+        node_revision=node.revision,
+        state=node.state,
+        cordoned=True,
+        active_workload_count=workload_count,
+        active_workload_ids=(),
+        workload_observed_at=None,
+        explanation=_maintenance_explanation(
+            node=node,
+            evidence_ids=[str(window.event_id), str(lock.lock_id)],
+            workload_count=workload_count,
+            state=node.state,
+        ),
+    )
+
+
+def _snapshot_result(
+    snapshot: WorkloadSnapshot, lock: MaintenanceLockRow, node: NodeRow, outcome: str
+) -> MaintenanceResult:
+    return MaintenanceResult(
+        event_id=snapshot.event_id,
+        request_id=lock.request_id,
+        node_id=node.node_id,
+        outcome=outcome,
+        lock_id=lock.lock_id,
+        node_revision=node.revision,
+        state=node.state,
+        cordoned=True,
+        active_workload_count=snapshot.active_workload_count,
+        active_workload_ids=snapshot.active_workload_ids,
+        workload_observed_at=snapshot.observed_at,
+        explanation=_maintenance_explanation(
+            node=node,
+            evidence_ids=[str(snapshot.event_id), str(lock.lock_id)],
+            workload_count=snapshot.active_workload_count,
+            state=node.state,
+        ),
+    )
 
 
 def _snapshot(

@@ -11,6 +11,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 from gpu_lab_twin.domain.errors import ErrorCode
 from gpu_lab_twin.domain.fleet import NodeKind
 from gpu_lab_twin.domain.heartbeat import MEASUREMENT_DECIMALS, GpuSample, HeartbeatPayload
+from gpu_lab_twin.domain.maintenance import MaintenanceWindow, WorkloadSnapshot
 from gpu_lab_twin.domain.node_state import ConnectivityStatus, DriverHealth, NodeState
 from gpu_lab_twin.ports.inbound.fleet import FleetView
 
@@ -177,3 +178,80 @@ class FleetResponse(StrictDTO):
                 for node in view.nodes
             ],
         )
+
+
+class ScheduleMaintenanceDrainRequest(StrictDTO):
+    eventId: UUID
+    requestId: UUID
+    occurredAt: AwareDatetime
+    schemaVersion: Literal["1.0"]
+    startsAt: AwareDatetime
+    reason: str = Field(min_length=1, max_length=500)
+    expectedNodeRevision: int = Field(ge=0)
+    actor: str = Field(min_length=1, max_length=128)
+
+    def to_window(self) -> MaintenanceWindow:
+        return MaintenanceWindow(
+            event_id=self.eventId,
+            request_id=self.requestId,
+            occurred_at=self.occurredAt.astimezone(UTC),
+            starts_at=self.startsAt.astimezone(UTC),
+            reason=self.reason,
+            expected_node_revision=self.expectedNodeRevision,
+            actor=self.actor,
+        )
+
+
+class ScheduleMaintenanceDrainResponse(StrictDTO):
+    eventId: UUID
+    requestId: UUID
+    nodeId: str
+    outcome: Literal["SCHEDULED", "DUPLICATE"]
+    lockId: UUID
+    nodeRevision: int = Field(ge=0)
+    state: Literal[NodeState.DRAINING, NodeState.MAINTENANCE]
+    cordoned: Literal[True]
+    activeWorkloadCount: int | None = Field(default=None, ge=0)
+    activeWorkloadIds: list[str]
+    workloadObservedAt: AwareDatetime | None
+    explanation: ExplanationDTO
+
+
+class SubmitWorkloadSnapshotRequest(StrictDTO):
+    eventId: UUID
+    snapshotId: UUID
+    nodeId: str = Field(pattern=NODE_ID_PATTERN)
+    source: Literal["EXTERNAL_MOCK"]
+    sourceRevision: int = Field(ge=0)
+    observedAt: AwareDatetime
+    receivedAt: AwareDatetime
+    activeWorkloadCount: int = Field(ge=0)
+    activeWorkloadIds: list[str]
+
+    def to_snapshot(self) -> WorkloadSnapshot:
+        if self.activeWorkloadCount != len(self.activeWorkloadIds):
+            raise ValueError("activeWorkloadCount must equal the number of activeWorkloadIds")
+        return WorkloadSnapshot(
+            event_id=self.eventId,
+            snapshot_id=self.snapshotId,
+            node_id=self.nodeId,
+            source_revision=self.sourceRevision,
+            observed_at=self.observedAt.astimezone(UTC),
+            received_at=self.receivedAt.astimezone(UTC),
+            active_workload_ids=tuple(self.activeWorkloadIds),
+        )
+
+
+class WorkloadSnapshotResponse(StrictDTO):
+    eventId: UUID
+    requestId: UUID
+    nodeId: str
+    outcome: Literal["APPLIED", "DUPLICATE"]
+    lockId: UUID
+    nodeRevision: int = Field(ge=0)
+    state: Literal[NodeState.DRAINING, NodeState.MAINTENANCE]
+    cordoned: Literal[True]
+    activeWorkloadCount: int = Field(ge=0)
+    activeWorkloadIds: list[str]
+    workloadObservedAt: AwareDatetime
+    explanation: ExplanationDTO

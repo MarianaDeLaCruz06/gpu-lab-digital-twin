@@ -54,6 +54,8 @@ class NodeFacts:
 
     has_current_heartbeat: bool
     reasons: frozenset[ReasonCode] = frozenset()
+    maintenance_active: bool = False
+    active_workload_count: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,7 +76,11 @@ def evaluate(facts: NodeFacts) -> Decision:
     reasons = tuple(sorted(facts.reasons))
     degradations = tuple(reason for reason in reasons if reason in DEGRADATION_REASONS)
 
-    if ReasonCode.SILENT in facts.reasons:
+    if facts.maintenance_active and facts.active_workload_count != 0:
+        state, rule_ids = NodeState.DRAINING, ("MAINTENANCE_DRAIN_ACTIVE",)
+    elif facts.maintenance_active:
+        state, rule_ids = NodeState.MAINTENANCE, ("MAINTENANCE_FRESH_ZERO",)
+    elif ReasonCode.SILENT in facts.reasons:
         state, rule_ids = NodeState.OFFLINE, (ReasonCode.SILENT.value,)
     elif ReasonCode.RECOVERY_PENDING in facts.reasons:
         state, rule_ids = NodeState.RECOVERING, (ReasonCode.RECOVERY_PENDING.value,)

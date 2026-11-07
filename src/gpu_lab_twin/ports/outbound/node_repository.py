@@ -10,6 +10,7 @@ from gpu_lab_twin.domain.fleet import FleetInventory
 from gpu_lab_twin.domain.heartbeat import HeartbeatPayload
 from gpu_lab_twin.domain.node import NodeSnapshot, NodeView
 from gpu_lab_twin.domain.node_state import ConnectivityStatus, NodeState
+from gpu_lab_twin.domain.maintenance import MaintenanceResult, MaintenanceWindow, WorkloadSnapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,3 +159,9 @@ class NodeRepository(Protocol):
         ...
 
     def list_fleet(self) -> tuple[NodeView, ...]: ...
+
+    def schedule_maintenance(self, node_id: str, window: MaintenanceWindow, at: datetime) -> MaintenanceResult: ...
+
+    def apply_workload_snapshot(self, snapshot: WorkloadSnapshot, at: datetime) -> MaintenanceResult: ...
+
+    def count_active_maintenance_locks(self, node_id: str) -> int: ...
