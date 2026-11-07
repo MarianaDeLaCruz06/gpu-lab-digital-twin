@@ -8,9 +8,9 @@ from uuid import UUID
 
 from gpu_lab_twin.domain.fleet import FleetInventory
 from gpu_lab_twin.domain.heartbeat import HeartbeatPayload
+from gpu_lab_twin.domain.maintenance import MaintenanceResult, MaintenanceWindow, WorkloadSnapshot
 from gpu_lab_twin.domain.node import NodeSnapshot, NodeView
 from gpu_lab_twin.domain.node_state import ConnectivityStatus, NodeState
-from gpu_lab_twin.domain.maintenance import MaintenanceResult, MaintenanceWindow, WorkloadSnapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,6 +142,12 @@ class NodeRepository(Protocol):
 
         Raises ``DomainError(ERR_REVISION_CONFLICT)`` if the revision moved, and leaves nothing written.
         """
+        ...
+
+    def commit_heartbeat_batch(
+        self, commits: tuple[HeartbeatCommit | IgnoredHeartbeatCommit, ...]
+    ) -> tuple[int | None, ...]:
+        """Apply commits in order in one durable transaction. Returns new revision per applied commit, else None."""
         ...
 
     def commit_ignored_heartbeat(self, commit: IgnoredHeartbeatCommit) -> None:

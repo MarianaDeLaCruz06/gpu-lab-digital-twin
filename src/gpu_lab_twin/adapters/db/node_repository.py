@@ -163,39 +163,78 @@ class SqlNodeRepository:
             return bool(count)
 
     def commit_heartbeat(self, commit: HeartbeatCommit) -> int:
+        result = self.commit_heartbeat_batch((commit,))
+        revision = result[0]
+        assert revision is not None
+        return revision
+
+    def commit_heartbeat_batch(
+        self, commits: tuple[HeartbeatCommit | IgnoredHeartbeatCommit, ...]
+    ) -> tuple[int | None, ...]:
+        if not commits:
+            return ()
         try:
             with self._session_factory.begin() as session:
-                node_id = commit.projection.node_id
-                revision = self._compare_and_set(session, commit.projection, commit.at)
-                self._append_telemetry(session, commit)
-                if commit.transition is not None:
-                    self._append_transition(session, node_id, commit.transition, revision)
-                self._close_alerts(session, node_id, commit.closed_alert_reasons, commit.at)
-                for reason in commit.alert_reasons:
-                    self._upsert_open_alert(session, node_id, reason, commit.at, commit.explanation)
-                self._append_audit(session, node_id, commit.audit, commit.at)
-                return revision
+                base_offset = session.scalar(select(func.coalesce(func.max(TelemetrySnapshotRow.ingest_offset) + 1, 0)))
+                revisions: list[int | None] = []
+                # last applied commit index per node for is_current
+                last_applied_for_node: dict[str, int] = {}
+                for idx, commit in enumerate(commits):
+                    if isinstance(commit, HeartbeatCommit):
+                        last_applied_for_node[commit.projection.node_id] = idx
+                # clear is_current for nodes that will receive a new current snapshot in this batch
+                for node_id in last_applied_for_node:
+                    session.execute(
+                        update(TelemetrySnapshotRow)
+                        .where(TelemetrySnapshotRow.node_id == node_id, TelemetrySnapshotRow.is_current)
+                        .values(is_current=False)
+                    )
+                for idx, commit in enumerate(commits):
+                    offset = base_offset + idx
+                    if isinstance(commit, HeartbeatCommit):
+                        node_id = commit.projection.node_id
+                        revision = self._compare_and_set(session, commit.projection, commit.at)
+                        is_current = last_applied_for_node.get(node_id) == idx
+                        self._append_telemetry(
+                            session, commit, ingest_offset=offset, clear_current=False, is_current=is_current
+                        )
+                        if commit.transition is not None:
+                            self._append_transition(session, node_id, commit.transition, revision)
+                        self._close_alerts(session, node_id, commit.closed_alert_reasons, commit.at)
+                        for reason in commit.alert_reasons:
+                            self._upsert_open_alert(session, node_id, reason, commit.at, commit.explanation)
+                        self._append_audit(session, node_id, commit.audit, commit.at)
+                        revisions.append(revision)
+                    else:
+                        self._append_telemetry(
+                            session,
+                            commit,
+                            disposition="LATE_IGNORED",
+                            is_current=False,
+                            ingest_offset=offset,
+                            clear_current=False,
+                        )
+                        self._append_audit(
+                            session,
+                            commit.node_id,
+                            AuditRecord(
+                                event_id=commit.payload.event_id,
+                                event_type="HeartbeatLateIgnored",
+                                rule_ids=tuple(commit.explanation["ruleIds"]),
+                                evidence_ids=tuple(commit.explanation["evidenceIds"]),
+                                body={"response": dict(commit.result), "transitioned": False},
+                            ),
+                            commit.at,
+                        )
+                        revisions.append(None)
+                return tuple(revisions)
         except IntegrityError as exc:
-            raise _integrity_error(exc, commit) from exc
+            # find the first applied commit for error mapping; best effort
+            first = next((c for c in commits if isinstance(c, HeartbeatCommit)), commits[0])
+            raise _integrity_error(exc, first) from exc
 
     def commit_ignored_heartbeat(self, commit: IgnoredHeartbeatCommit) -> None:
-        try:
-            with self._session_factory.begin() as session:
-                self._append_telemetry(session, commit, disposition="LATE_IGNORED", is_current=False)
-                self._append_audit(
-                    session,
-                    commit.node_id,
-                    AuditRecord(
-                        event_id=commit.payload.event_id,
-                        event_type="HeartbeatLateIgnored",
-                        rule_ids=tuple(commit.explanation["ruleIds"]),
-                        evidence_ids=tuple(commit.explanation["evidenceIds"]),
-                        body={"response": dict(commit.result), "transitioned": False},
-                    ),
-                    commit.at,
-                )
-        except IntegrityError as exc:
-            raise _integrity_error(exc, commit) from exc
+        self.commit_heartbeat_batch((commit,))
 
     def commit_transition(self, commit: TransitionCommit) -> int:
         try:
@@ -258,7 +297,9 @@ class SqlNodeRepository:
     def schedule_maintenance(self, node_id: str, window: MaintenanceWindow, at: datetime) -> MaintenanceResult:
         request_hash = window.canonical_hash(node_id)
         with self._session_factory.begin() as session:
-            existing = session.scalar(select(MaintenanceLockRow).where(MaintenanceLockRow.request_id == window.request_id))
+            existing = session.scalar(
+                select(MaintenanceLockRow).where(MaintenanceLockRow.request_id == window.request_id)
+            )
             if existing is not None:
                 if existing.request_hash != request_hash:
                     raise DomainError(
@@ -406,7 +447,9 @@ class SqlNodeRepository:
                 AuditRecord(
                     event_id=snapshot.event_id,
                     event_type="WorkloadSnapshotReceived",
-                    rule_ids=("MAINTENANCE_FRESH_ZERO" if state is NodeState.MAINTENANCE else "MAINTENANCE_DRAIN_ACTIVE",),
+                    rule_ids=(
+                        "MAINTENANCE_FRESH_ZERO" if state is NodeState.MAINTENANCE else "MAINTENANCE_DRAIN_ACTIVE",
+                    ),
                     evidence_ids=(str(snapshot.event_id), str(lock.lock_id)),
                     body={"sourceRevision": snapshot.source_revision, "response": result.as_document()},
                 ),
@@ -416,11 +459,14 @@ class SqlNodeRepository:
 
     def count_active_maintenance_locks(self, node_id: str) -> int:
         with self._session_factory() as session:
-            return session.scalar(
-                select(func.count()).select_from(MaintenanceLockRow).where(
-                    MaintenanceLockRow.node_id == node_id, MaintenanceLockRow.active.is_(True)
+            return (
+                session.scalar(
+                    select(func.count())
+                    .select_from(MaintenanceLockRow)
+                    .where(MaintenanceLockRow.node_id == node_id, MaintenanceLockRow.active.is_(True))
                 )
-            ) or 0
+                or 0
+            )
 
     def list_fleet(self) -> tuple[NodeView, ...]:
         with self._session_factory() as session:
@@ -505,13 +551,19 @@ class SqlNodeRepository:
         *,
         disposition: str | None = None,
         is_current: bool = True,
+        ingest_offset: int | None = None,
+        clear_current: bool = True,
     ) -> None:
         payload = commit.payload
         node_id = commit.projection.node_id if isinstance(commit, HeartbeatCommit) else commit.node_id
         telemetry_id = _derived_id("telemetry", payload.event_id)
-        next_offset = session.scalar(select(func.coalesce(func.max(TelemetrySnapshotRow.ingest_offset) + 1, 0)))
+        next_offset = (
+            ingest_offset
+            if ingest_offset is not None
+            else session.scalar(select(func.coalesce(func.max(TelemetrySnapshotRow.ingest_offset) + 1, 0)))
+        )
 
-        if is_current:
+        if is_current and clear_current:
             session.execute(
                 update(TelemetrySnapshotRow)
                 .where(TelemetrySnapshotRow.node_id == node_id, TelemetrySnapshotRow.is_current)

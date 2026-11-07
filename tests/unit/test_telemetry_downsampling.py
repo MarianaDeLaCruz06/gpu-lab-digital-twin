@@ -1,4 +1,5 @@
 from datetime import timedelta
+from uuid import uuid4
 
 import pytest
 
@@ -6,14 +7,24 @@ from gpu_lab_twin.domain.heartbeat import GpuSample, HeartbeatPayload
 from gpu_lab_twin.domain.node_state import DriverHealth
 from gpu_lab_twin.domain.telemetry_downsampling import TelemetryDownsampler
 from tests.conftest import T0
-from uuid import uuid4
 
 
 def payload(offset_ms: int, temperature: float) -> HeartbeatPayload:
     at = T0 + timedelta(milliseconds=offset_ms)
-    return HeartbeatPayload(uuid4(), at, at, "1.0", "boot-a", None, False, None,
-                            (GpuSample("ws-gpu-01-gpu-0", temperature, 1.0),),
-                            DriverHealth.HEALTHY, 300.0, None)
+    return HeartbeatPayload(
+        uuid4(),
+        at,
+        at,
+        "1.0",
+        "boot-a",
+        None,
+        False,
+        None,
+        (GpuSample("ws-gpu-01-gpu-0", temperature, 1.0),),
+        DriverHealth.HEALTHY,
+        300.0,
+        None,
+    )
 
 
 def test_downsamples_to_ten_hz_and_preserves_peak() -> None:
@@ -32,7 +43,10 @@ def test_capacity_is_strictly_bounded() -> None:
     for offset in (0, 100, 200):
         sampler.observe("ws-gpu-01", payload(offset, 40.0 + offset))
     assert sampler.retained_windows == 2
-    assert [item.starts_at for item in sampler.windows()] == [T0 + timedelta(milliseconds=100), T0 + timedelta(milliseconds=200)]
+    assert [item.starts_at for item in sampler.windows()] == [
+        T0 + timedelta(milliseconds=100),
+        T0 + timedelta(milliseconds=200),
+    ]
 
 
 @pytest.mark.parametrize("frequency,capacity", [(0, 1), (10, 0), (-1, 2)])

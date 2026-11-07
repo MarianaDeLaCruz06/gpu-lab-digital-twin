@@ -50,7 +50,9 @@ class TelemetryDownsampler:
         gpus = tuple(
             DownsampledGpu(
                 gpu_device_id=sample.gpu_device_id,
-                peak_temperature_c=max(sample.temperature_c, prior.get(sample.gpu_device_id, _zero(sample)).peak_temperature_c),
+                peak_temperature_c=max(
+                    sample.temperature_c, prior.get(sample.gpu_device_id, _zero(sample)).peak_temperature_c
+                ),
                 latest_vram_occupied_gb=sample.vram_occupied_gb,
             )
             for sample in payload.gpu_samples
@@ -75,4 +77,3 @@ class TelemetryDownsampler:
 
 def _zero(sample) -> DownsampledGpu:
     return DownsampledGpu(sample.gpu_device_id, float("-inf"), sample.vram_occupied_gb)
-

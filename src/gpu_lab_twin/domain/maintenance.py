@@ -67,9 +67,14 @@ class MaintenanceResult:
 
     def as_document(self) -> dict:
         return {
-            "eventId": str(self.event_id), "requestId": str(self.request_id), "nodeId": self.node_id,
-            "outcome": self.outcome, "lockId": str(self.lock_id), "nodeRevision": self.node_revision,
-            "state": self.state.value, "cordoned": self.cordoned,
+            "eventId": str(self.event_id),
+            "requestId": str(self.request_id),
+            "nodeId": self.node_id,
+            "outcome": self.outcome,
+            "lockId": str(self.lock_id),
+            "nodeRevision": self.node_revision,
+            "state": self.state.value,
+            "cordoned": self.cordoned,
             "activeWorkloadCount": self.active_workload_count,
             "activeWorkloadIds": list(self.active_workload_ids),
             "workloadObservedAt": self.workload_observed_at.isoformat() if self.workload_observed_at else None,
@@ -81,4 +86,3 @@ def maintenance_state(*, lock_acquired_at: datetime, snapshot: WorkloadSnapshot 
     if snapshot is None or snapshot.observed_at < lock_acquired_at or snapshot.received_at < lock_acquired_at:
         return NodeState.DRAINING
     return NodeState.MAINTENANCE if snapshot.active_workload_count == 0 else NodeState.DRAINING
-

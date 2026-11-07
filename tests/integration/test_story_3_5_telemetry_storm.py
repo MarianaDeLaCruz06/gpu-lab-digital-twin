@@ -2,8 +2,8 @@ from datetime import timedelta
 
 from fastapi.testclient import TestClient
 
-from gpu_lab_twin.bootstrap import Container
 from gpu_lab_twin.adapters.sim.fake_clock import FakeClock
+from gpu_lab_twin.bootstrap import Container
 from tests.conftest import T0
 from tests.support import heartbeat_body
 
@@ -37,7 +37,9 @@ def test_burst_across_all_nodes_retains_every_heartbeat_semantic(
         at = T0 + timedelta(milliseconds=index)
         response = client.post(
             f"/v1/nodes/{spec.node_id}/heartbeats",
-            json=heartbeat_body(spec.node_id, at, seq=1, temperatures=temperatures, vram_gb=tuple(0.0 for _ in temperatures)),
+            json=heartbeat_body(
+                spec.node_id, at, seq=1, temperatures=temperatures, vram_gb=tuple(0.0 for _ in temperatures)
+            ),
         )
         assert response.status_code == 200
         assert response.json()["outcome"] == "APPLIED"

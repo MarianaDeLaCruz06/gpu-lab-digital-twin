@@ -10,4 +10,3 @@ _STATIC = Path(__file__).resolve().parents[1] / "static"
 @router.get("/technician/fleet-grid")
 def fleet_grid() -> FileResponse:
     return FileResponse(_STATIC / "fleet-map.html")
-

@@ -10,7 +10,9 @@ from gpu_lab_twin.ports.outbound.node_repository import NodeRepository
 
 
 class MaintenanceService:
-    def __init__(self, *, inventory: FleetInventory, nodes: NodeRepository, clock: Clock, write_lock: threading.Lock) -> None:
+    def __init__(
+        self, *, inventory: FleetInventory, nodes: NodeRepository, clock: Clock, write_lock: threading.Lock
+    ) -> None:
         self._inventory = inventory
         self._nodes = nodes
         self._clock = clock
