@@ -1,0 +1,6 @@
+<testsuites id="" name="" tests="1" failures="0" skipped="0" errors="0" time="7.983671999999999">
+<testsuite name="story-3.6-maintenance-drain.spec.ts" timestamp="2026-11-07T19:20:41.723Z" hostname="chromium" tests="1" failures="0" skipped="0" time="1.115" errors="0">
+<testcase name="Carlos drains server-gpu-01 without duplicate locks and sees maintenance" classname="story-3.6-maintenance-drain.spec.ts" time="1.115">
+</testcase>
+</testsuite>
+</testsuites>
