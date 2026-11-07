@@ -1,0 +1,81 @@
+import crypto from 'k6/crypto';
+import http from 'k6/http';
+import { check } from 'k6';
+import { Counter, Rate } from 'k6/metrics';
+
+const baseUrl = __ENV.BASE_URL || 'http://127.0.0.1:8766';
+const profile = (__ENV.K6_PROFILE || 'smoke').toLowerCase();
+const serverErrors = new Rate('unhandled_server_error_rate');
+const acceptedResponses = new Counter('canonical_responses');
+
+const nodes = Array.from({ length: 31 }, (_, index) => `ws-gpu-${String(index + 1).padStart(2, '0')}`)
+  .concat('central-gpu-server');
+
+const fullScenario = {
+  executor: 'constant-arrival-rate',
+  rate: 2000,
+  timeUnit: '1s',
+  duration: '60s',
+  preAllocatedVUs: 256,
+  maxVUs: 2000,
+};
+const smokeScenario = {
+  executor: 'constant-arrival-rate',
+  rate: 5,
+  timeUnit: '1s',
+  duration: '5s',
+  preAllocatedVUs: 8,
+  maxVUs: 32,
+};
+
+export const options = {
+  summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
+  scenarios: { telemetry_storm: profile === 'full' ? fullScenario : smokeScenario },
+  thresholds: {
+    unhandled_server_error_rate: ['rate==0'],
+    http_req_duration: ['p(95)<5000'],
+    ...(profile === 'full' ? { dropped_iterations: ['count==0'] } : {}),
+  },
+};
+
+function bodyFor(nodeId) {
+  const now = new Date().toISOString();
+  const digest = crypto.md5(`${now}:${nodeId}:${__VU}:${__ITER}`, 'hex');
+  const eventId = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-4${digest.slice(13, 16)}-a${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
+  const gpuIds = nodeId === 'central-gpu-server'
+    ? ['central-gpu-server-gpu-0', 'central-gpu-server-gpu-1']
+    : [`${nodeId}-gpu-0`];
+  return JSON.stringify({
+    eventId,
+    occurredAt: now,
+    receivedAt: now,
+    schemaVersion: '1.0',
+    bootSessionId: 'k6-storm-boot',
+    previousBootSessionId: null,
+    stateLoss: false,
+    sourceSequence: null,
+    gpuSamples: gpuIds.map((gpuDeviceId, index) => ({
+      gpuDeviceId,
+      temperatureC: 40 + ((__ITER + index) % 45),
+      vramOccupiedGb: (__ITER + index) % 20,
+    })),
+    driverHealth: 'HEALTHY',
+    storageFreeGb: 320,
+    externalContext: null,
+  });
+}
+
+export default function () {
+  const nodeId = nodes[(__VU + __ITER) % nodes.length];
+  const response = http.post(`${baseUrl}/v1/nodes/${nodeId}/heartbeats`, bodyFor(nodeId), {
+    headers: { 'Content-Type': 'application/json' },
+    tags: { profile, route: 'canonical-heartbeat' },
+  });
+  const isServerError = response.status >= 500;
+  serverErrors.add(isServerError);
+  if (response.status === 200 || response.status === 409) acceptedResponses.add(1);
+  check(response, {
+    'no unhandled 5xx': () => !isServerError,
+    'canonical response or typed ordering conflict': value => value.status === 200 || value.status === 409,
+  });
+}

@@ -1,0 +1,87 @@
+﻿COMMAND: C:\Users\maria\OneDrive\Desktop\gpu-lab-digital-twin\.tools\k6-v2.3.0-windows-amd64\k6.exe run tests/nfr/telemetry-storm.js
+PROFILE: smoke
+SERVER_PID: 15056
+MAX_RSS_BYTES: 108195840
+MAX_RSS_MIB: 103.18
+K6_EXIT_CODE: 0
+
+STDOUT:
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: tests/nfr/telemetry-storm.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 32 max VUs, 35s max duration (incl. graceful stop):
+              * telemetry_storm: 5.00 iterations/s for 5s (maxVUs: 8-32, gracefulStop: 30s)
+
+
+running (01.0s), 00/08 VUs, 5 complete and 0 interrupted iterations
+telemetry_storm   [  20% ] 00/08 VUs  1.0s/5s  5.00 iters/s
+
+running (02.0s), 00/08 VUs, 10 complete and 0 interrupted iterations
+telemetry_storm   [  40% ] 00/08 VUs  2.0s/5s  5.00 iters/s
+
+running (03.0s), 00/08 VUs, 15 complete and 0 interrupted iterations
+telemetry_storm   [  60% ] 00/08 VUs  3.0s/5s  5.00 iters/s
+
+running (04.0s), 00/08 VUs, 20 complete and 0 interrupted iterations
+telemetry_storm   [  80% ] 00/08 VUs  4.0s/5s  5.00 iters/s
+
+running (05.0s), 00/08 VUs, 25 complete and 0 interrupted iterations
+telemetry_storm   [ 100% ] 00/08 VUs  5.0s/5s  5.00 iters/s
+
+
+  █ THRESHOLDS 
+
+    http_req_duration
+    ✓ 'p(95)<5000' p(95)=72.49ms
+
+    unhandled_server_error_rate
+    ✓ 'rate==0' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 50      9.997799/s
+    checks_succeeded...: 100.00% 50 out of 50
+    checks_failed......: 0.00%   0 out of 50
+
+    ✓ no unhandled 5xx
+    ✓ canonical response or typed ordering conflict
+
+    CUSTOM
+    canonical_responses............: 25    4.9989/s
+    unhandled_server_error_rate....: 0.00% 0 out of 25
+
+    HTTP
+    http_req_duration..............: avg=55.66ms min=23.35ms med=57.32ms max=95.15ms p(90)=67.29ms p(95)=72.49ms p(99)=90.01ms
+      { expected_response:true }...: avg=55.66ms min=23.35ms med=57.32ms max=95.15ms p(90)=67.29ms p(95)=72.49ms p(99)=90.01ms
+    http_req_failed................: 0.00% 0 out of 25
+    http_reqs......................: 25    4.9989/s
+
+    EXECUTION
+    iteration_duration.............: avg=57.17ms min=23.35ms med=58.02ms max=98.81ms p(90)=69.27ms p(95)=74.84ms p(99)=93.38ms
+    iterations.....................: 25    4.9989/s
+    vus............................: 0     min=0       max=0
+    vus_max........................: 8     min=8       max=8
+
+    NETWORK
+    data_received..................: 25 kB 4.9 kB/s
+    data_sent......................: 14 kB 2.8 kB/s
+
+
+
+
+running (05.0s), 00/08 VUs, 25 complete and 0 interrupted iterations
+telemetry_storm ✓ [ 100% ] 00/08 VUs  5s  5.00 iters/s
+
+
+STDERR:
+
