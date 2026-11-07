@@ -27,14 +27,29 @@ const smokeScenario = {
   preAllocatedVUs: 8,
   maxVUs: 32,
 };
+function rampScenario() {
+  const rate = Number(__ENV.RAMP_RATE || __ENV.K6_RATE || '100');
+  const duration = __ENV.RAMP_DURATION || '10s';
+  const maxVUs = Number(__ENV.RAMP_MAX_VUS || String(Math.max(64, Math.ceil(rate * 2))));
+  return {
+    executor: 'constant-arrival-rate',
+    rate,
+    timeUnit: '1s',
+    duration,
+    preAllocatedVUs: Math.min(maxVUs, Math.max(32, Math.ceil(rate / 2))),
+    maxVUs,
+  };
+}
+const isRamp = profile === 'ramp' || Boolean(__ENV.RAMP_RATE || __ENV.K6_RATE);
+const scenario = isRamp ? rampScenario() : (profile === 'full' ? fullScenario : smokeScenario);
 
 export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
-  scenarios: { telemetry_storm: profile === 'full' ? fullScenario : smokeScenario },
+  scenarios: { telemetry_storm: scenario },
   thresholds: {
     unhandled_server_error_rate: ['rate==0'],
-    http_req_duration: ['p(95)<5000'],
-    ...(profile === 'full' ? { dropped_iterations: ['count==0'] } : {}),
+    ...(isRamp ? {} : { http_req_duration: ['p(95)<5000'] }),
+    ...(profile === 'full' && !isRamp ? { dropped_iterations: ['count==0'] } : {}),
   },
 };
 

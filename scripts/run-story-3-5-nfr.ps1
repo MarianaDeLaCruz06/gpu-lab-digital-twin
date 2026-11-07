@@ -1,6 +1,8 @@
 param(
-    [ValidateSet('smoke', 'full')]
-    [string]$Profile = 'smoke'
+    [ValidateSet('smoke', 'full', 'ramp')]
+    [string]$Profile = 'smoke',
+    [string]$Rate = '',
+    [string]$Duration = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -46,6 +48,8 @@ try {
 
         $env:BASE_URL = 'http://127.0.0.1:8766'
         $env:K6_PROFILE = $Profile
+        if ($Rate) { $env:RAMP_RATE = $Rate }
+        if ($Duration) { $env:RAMP_DURATION = $Duration }
         $serverPids = @($server.Id)
         do {
             $children = Get-CimInstance Win32_Process | Where-Object {
