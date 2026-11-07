@@ -11,11 +11,13 @@ from gpu_lab_twin.adapters.clock.system_clock import SystemClock
 from gpu_lab_twin.adapters.db.engine import build_engine, build_session_factory
 from gpu_lab_twin.adapters.db.node_repository import SqlNodeRepository
 from gpu_lab_twin.adapters.sim.fleet_fixture import load_fleet_inventory
+from gpu_lab_twin.application.connectivity_service import ConnectivityService
 from gpu_lab_twin.application.fleet_query import FleetQueryService
 from gpu_lab_twin.application.heartbeat_service import HeartbeatService
 from gpu_lab_twin.application.liveness_service import LivenessService
 from gpu_lab_twin.config.settings import Settings
 from gpu_lab_twin.domain.fleet import FleetInventory
+from gpu_lab_twin.ports.inbound.connectivity import ConnectivityPort
 from gpu_lab_twin.ports.inbound.fleet import FleetQueryPort
 from gpu_lab_twin.ports.inbound.heartbeat import HeartbeatPort
 from gpu_lab_twin.ports.inbound.liveness import LivenessPort
@@ -33,6 +35,7 @@ class Container:
     heartbeats: HeartbeatPort
     liveness: LivenessPort
     fleet: FleetQueryPort
+    connectivity: ConnectivityPort
 
 
 def build_container(settings: Settings, *, clock: Clock | None = None, engine: Engine | None = None) -> Container:
@@ -62,4 +65,10 @@ def build_container(settings: Settings, *, clock: Clock | None = None, engine: E
             write_lock=write_lock,
         ),
         fleet=FleetQueryService(inventory=inventory, nodes=nodes, clock=clock),
+        connectivity=ConnectivityService(
+            nodes=nodes,
+            clock=clock,
+            policy_version=settings.policy_version,
+            write_lock=write_lock,
+        ),
     )

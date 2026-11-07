@@ -25,9 +25,11 @@ from gpu_lab_twin.domain.fleet import FleetInventory
 from gpu_lab_twin.domain.node import GpuReading, NodeSnapshot, NodeView
 from gpu_lab_twin.ports.outbound.node_repository import (
     AuditRecord,
+    ConnectivityObservationCommit,
     HeartbeatCommit,
     IgnoredHeartbeatCommit,
     ProjectionUpdate,
+    RecordedConnectivityObservation,
     RecordedHeartbeat,
     TransitionCommit,
     TransitionRecord,
@@ -126,6 +128,25 @@ class SqlNodeRepository:
                 node_id=found.node_id, payload_hash=found.payload_hash, response=found.body["response"]
             )
 
+    def find_connectivity_observation(self, event_id: UUID) -> RecordedConnectivityObservation | None:
+        with self._session_factory() as session:
+            found = session.execute(
+                select(AuditEventRow.node_id, AuditEventRow.event_type, AuditEventRow.body).where(
+                    AuditEventRow.event_id == event_id
+                )
+            ).one_or_none()
+            if found is None:
+                return None
+            return RecordedConnectivityObservation(
+                node_id=found.node_id or "",
+                observation_hash=(
+                    found.body.get("observationHash", "__event_type_conflict__")
+                    if found.event_type == "ConnectivityObserved"
+                    else "__event_type_conflict__"
+                ),
+                response=found.body.get("response", {}),
+            )
+
     def has_boot_session(self, node_id: str, boot_session_id: str) -> bool:
         with self._session_factory() as session:
             count = session.scalar(
@@ -187,6 +208,48 @@ class SqlNodeRepository:
             logger.error("integrity error for transition %s: %s", commit.audit.event_id, exc.orig)
             raise DomainError(
                 ErrorCode.ERR_INGRESS_UNAVAILABLE, "The evaluation was not committed; storage rejected the write."
+            ) from exc
+
+    def commit_connectivity_observation(self, commit: ConnectivityObservationCommit) -> None:
+        try:
+            with self._session_factory.begin() as session:
+                self._upsert_open_alert(
+                    session,
+                    commit.node_id,
+                    commit.reason_code,
+                    commit.accepted_at,
+                    commit.explanation,
+                )
+                self._append_audit(
+                    session,
+                    commit.node_id,
+                    AuditRecord(
+                        event_id=commit.event_id,
+                        event_type="ConnectivityObserved",
+                        rule_ids=(commit.reason_code,),
+                        evidence_ids=(str(commit.event_id),),
+                        body={
+                            "observationHash": commit.observation_hash,
+                            "observation": commit.observation,
+                            "observedAt": commit.observed_at.isoformat(),
+                            "response": dict(commit.response),
+                            "transitioned": False,
+                        },
+                    ),
+                    commit.accepted_at,
+                )
+        except IntegrityError as exc:
+            message = str(exc.orig)
+            if _violates(message, _EVENT_ID_CONSTRAINTS):
+                raise DomainError(
+                    ErrorCode.ERR_IDEMPOTENCY_CONFLICT,
+                    f"{commit.event_id} was already used.",
+                    details={"eventId": str(commit.event_id)},
+                ) from exc
+            logger.error("integrity error for connectivity observation %s: %s", commit.event_id, message)
+            raise DomainError(
+                ErrorCode.ERR_INGRESS_UNAVAILABLE,
+                "The connectivity observation was not accepted; storage rejected the write.",
             ) from exc
 
     def list_fleet(self) -> tuple[NodeView, ...]:

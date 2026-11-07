@@ -20,6 +20,26 @@ class RecordedHeartbeat:
 
 
 @dataclass(frozen=True, slots=True)
+class RecordedConnectivityObservation:
+    node_id: str
+    observation_hash: str
+    response: Mapping[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ConnectivityObservationCommit:
+    event_id: UUID
+    node_id: str
+    observation_hash: str
+    observed_at: datetime
+    accepted_at: datetime
+    observation: str
+    reason_code: str
+    explanation: Mapping[str, Any]
+    response: Mapping[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
 class ProjectionUpdate:
     """New aggregate values, written only if the stored revision still equals ``expected_revision``."""
 
@@ -114,6 +134,8 @@ class NodeRepository(Protocol):
 
     def find_heartbeat(self, event_id: UUID) -> RecordedHeartbeat | None: ...
 
+    def find_connectivity_observation(self, event_id: UUID) -> RecordedConnectivityObservation | None: ...
+
     def commit_heartbeat(self, commit: HeartbeatCommit) -> int:
         """Apply atomically and return the new revision.
 
@@ -129,6 +151,10 @@ class NodeRepository(Protocol):
 
     def commit_transition(self, commit: TransitionCommit) -> int:
         """Apply atomically and return the new revision; ``ERR_REVISION_CONFLICT`` if the revision moved."""
+        ...
+
+    def commit_connectivity_observation(self, commit: ConnectivityObservationCommit) -> None:
+        """Atomically append raw evidence and upsert one current unresolved-policy diagnostic."""
         ...
 
     def list_fleet(self) -> tuple[NodeView, ...]: ...
