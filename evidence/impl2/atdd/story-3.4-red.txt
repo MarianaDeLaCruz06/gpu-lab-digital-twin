@@ -1,0 +1,34 @@
+IMPL-2 Story 3.4 - Authentic ATDD RED Evidence
+================================================
+
+Command:
+$env:UV_CACHE_DIR = Join-Path $env:TEMP 'gpu-lab-uv-cache'; uv run pytest tests/acceptance/test_story_3_4_connectivity_flapping.py -q -ra
+
+Git HEAD:
+3abc6f2dc4001a8bb3d72d3fd70ad7eb1d504017
+
+Observed timestamp:
+2026-11-07T12:51:33.0509372-05:00
+
+Result:
+FFFF                                                                     [100%]
+
+FAILED tests/acceptance/test_story_3_4_connectivity_flapping.py::test_ac1_five_second_pulses_preserve_stable_public_tuple_and_eligibility[12]
+FAILED tests/acceptance/test_story_3_4_connectivity_flapping.py::test_ac2_exact_threshold_and_just_beyond_do_not_invent_odd5_policy
+FAILED tests/acceptance/test_story_3_4_connectivity_flapping.py::test_ac3_unique_pulses_create_one_diagnostic_zero_flapping_alerts_and_one_audit_each
+FAILED tests/acceptance/test_story_3_4_connectivity_flapping.py::test_ac4_duplicate_is_idempotent_and_conflicting_reuse_is_rejected_atomically
+4 failed in 1.19s
+
+Authentic failure excerpt (same in each criterion scaffold):
+
+    def _port(container: Container):
+        port = getattr(container, "connectivity", None)
+>       assert port is not None, "AC requires a connectivity observation inbound port"
+E       AssertionError: AC requires a connectivity observation inbound port
+E       assert None is not None
+
+Reason for RED:
+The pre-Story-3.4 composition root has no connectivity observation inbound port or application service. The failure is the authentic missing production capability, after the HEALTHY prerequisite heartbeat succeeded; it is not a dependency, fixture, clock, or placeholder failure.
+
+Note on shell status:
+The evidence command invocation also printed `git rev-parse HEAD` and `Get-Date` after pytest, so the compound PowerShell process returned the final metadata command's status. Pytest's own summary above is authoritative and reports four failures.
