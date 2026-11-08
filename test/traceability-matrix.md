@@ -4,6 +4,8 @@ Phase 3 initial pass used `PENDING` Story IDs. Phase 4 final pass replaced every
 
 Impl-2 continuation (2026-11-07, branch `feature/impl2`) adds assignment-story traceability below. Evidence paths are repository-relative. Statuses are truthful to executed evidence (LOCAL_SMOKE vs FULL_NFR distinguished).
 
+> **Reading note (2026-11-08):** the table below and the AD coverage gate are the **Solu-2 pre-implementation snapshot**. `RED` there means "executable contract test existed and failed at the stub before Impl-1"; it is not the current status. Current status, test files, CI evidence and verdicts are in **Impl-2 quality gate (current)** at the end of this file.
+
 | PRD FR/NFR | UX Scenario | AD-n | Contract Clause | Test ID | Story ID | Status |
 |---|---|---|---|---|---|---|
 | FR-1 Fixed fleet | Scenario 1 / Fleet Success, Empty | AD-4, AD-8 | ingest Q; I-H6 | HB-FRESH-001, fixture cardinality | 1.1 | RED |
@@ -67,4 +69,38 @@ The unresolved ODD-5 baseline retains raw evidence, preserves public state/conne
 | 3.5 Telemetry storm downsampling | Handle 32-node storm; bounded memory; 10 Hz windowed output; peak GPU temperature preserved within <=1%; formal 2,000 events/s for 60s, 0 unhandled 5xx, RSS < 200 MB | `docs/spec-3-5-telemetry-storm.md`, `docs/story-3-5-nfr-bottleneck-analysis.md` | Flow D NFR RED baseline preserved (authentic): `evidence/impl2/nfr/story-3.5-full-red-*` | `src/gpu_lab_twin/domain/telemetry_downsampling.py`, `src/gpu_lab_twin/application/heartbeat_service.py`, `src/gpu_lab_twin/bootstrap.py`, `src/gpu_lab_twin/adapters/db/engine.py` | `tests/unit/test_telemetry_downsampling.py`, `tests/integration/test_story_3_5_telemetry_storm.py` PASS; full regression 154 passed; package branch coverage 90%, core-domain 95.56% | SQLite FULL remains authentic RED. PostgreSQL 17.11 ramps: canonical peak 20.57 responses/s; at 2,000 target, 10,095 dropped and 97.63% HTTP failed; no credible FULL capacity. Evidence: `evidence/impl2/nfr/story-3.5-postgres-ramp-summary.md`. | **FAIL (formal NFR) / CONCERNS** — both backends fail the unchanged formal capacity gate; frozen synchronous atomic contract requires architecture decision |
 | 3.6 Visual fleet drain orchestration (maps Epic 3 maintenance intent) | 32-node Fleet Grid; start maintenance drain; show DRAINING/maintenance-in-progress; simulated active workload completion -> MAINTENANCE; unavailable for new work; repeated request no duplicate locks; conflicting action shows typed error | `docs/sprint-status.yaml` assignment `3.6-visual-fleet-drain-orchestration`, UI + maintenance API implementation on branch | N/A (implementation/E2E continuation; existing feature tests) | `src/gpu_lab_twin/application/maintenance_service.py`, `src/gpu_lab_twin/api/routes/maintenance.py`, `src/gpu_lab_twin/api/routes/ui.py`, domain/ports/adapters, maintenance migration/models | `tests/integration/test_story_3_6_maintenance.py` PASS; full regression PASS | Playwright E2E (real backend via `playwright.config.ts` webServer): `tests/e2e/story-3.6-maintenance-drain.spec.ts` + `tests/e2e/pages/FleetMapPage.ts` POM. Run 2026-11-07: **1 passed, 0 failed, 0 skipped, 0 retries used**; evidence `evidence/impl2/playwright/playwright-results.xml`, `evidence/impl2/playwright/test-results/.last-run.json`. Verifies 32-node grid, server-gpu-01/central-gpu-server selection, drain start, DRAINING + unavailable, idempotent reuse (200), typed conflict `ERR_IDEMPOTENCY_CONFLICT` (409), workload completion -> MAINTENANCE. `trace: 'on-first-retry'` configured; no retry occurred so no trace.zip manufactured. | PASS (backend + real-browser workflow verified) |
 
-**Unmapped Impl-2 requirements (3.4-3.6):** 0. Story 3.5 retains a formal FULL_NFR evidence gap (execution not possible in current environment) — this is recorded as CONCERNS, not a missing trace link.
+**Unmapped Impl-2 requirements (3.4-3.6):** 0. Story 3.5's formal FULL_NFR profile was executed and is RED on both SQLite and PostgreSQL (see the gate below); this is a failed requirement, not a missing trace link.
+
+## Impl-2 quality gate (current, 2026-11-08)
+
+Chain required by the task: PRD requirement → user story → automated test files → CI evidence → verdict.
+CI jobs (`.github/workflows/ci.yml`): **T** = `lint-and-test` (pytest on SQLite with coverage and on PostgreSQL 17, plus a migration round-trip); **E** = `e2e-playwright` (uploads `trace.zip`); **K** = `nfr-k6-smoke`.
+Local run on 2026-11-08: pytest 154 passed / 0 failed / 0 skipped; Playwright 1 passed; branch coverage 90% total, core domain 96–100%.
+
+| PRD requirement | Assignment story (canonical) | Automated test files | CI evidence | Verdict |
+|---|---|---|---|---|
+| FR-1 fixed fleet, FR-2 validation/ingestion, FR-11 fleet view, NFR-1 completeness | 3.1 heartbeat ingestion (1.1) | `tests/integration/test_story_1_1_heartbeat_ingestion.py`, `tests/integration/test_fleet_view.py`, `tests/integration/test_health_probes.py`, `tests/unit/test_heartbeat_policy.py`, `tests/unit/test_fleet_inventory.py` | T | PASS |
+| FR-4 silence, NFR-4 silence accuracy | 3.2 silent node → OFFLINE (1.3) | `tests/integration/test_story_1_3_silent_node_detection.py`, `tests/integration/test_liveness_scan_wiring.py`, `tests/unit/test_silence_policy.py`, `tests/unit/test_scheduler.py` | T | PASS |
+| FR-5 thermal, NFR-3 thermal safety | 3.3 thermal cordon (2.1) | `tests/integration/test_story_2_1_thermal_cordon.py`, `tests/unit/test_thermal_policy.py` | T | PASS |
+| FR-7 state evaluation, NFR-6 determinism, NFR-13 precedence | 3.1–3.6 (shared reducer) | `tests/unit/test_node_state_reducer.py` | T | PASS |
+| NFR-2 hardware independence, NFR-9 data integrity | all | `tests/unit/test_architecture.py`, `tests/integration/test_revision_cas.py`, `tests/integration/test_migrations.py` | T | PASS |
+| FR-10 flapping, NFR-8 flapping containment (AD-5) | 3.4 anti-flapping (2.3) — Flow A | `tests/acceptance/test_story_3_4_connectivity_flapping.py`, `tests/unit/test_connectivity_policy.py`; RED `evidence/impl2/atdd/story-3.4-red.txt` | T | PASS |
+| FR-2/FR-3 semantic preservation under storm; 10 Hz peak-preserving downsampling | 3.5 telemetry storm — Flow D (functional) | `tests/unit/test_telemetry_downsampling.py`, `tests/integration/test_story_3_5_telemetry_storm.py` | T | PASS |
+| Annex 3.5 NFR: 2,000 events/s × 60 s, p95 < 5 s, 0 dropped, 0 unhandled 5xx, RSS < 200 MB | 3.5 telemetry storm — Flow D (capacity) | `tests/nfr/telemetry-storm.js` (smoke / full / ramp), `scripts/run-story-3-5-nfr.ps1` | K (smoke profile only); FULL evidence `evidence/impl2/nfr/story-3.5-full-red-*`, `story-3.5-postgres-ramp-summary.md` | Smoke PASS; **formal FULL FAIL** |
+| FR-8 maintenance drain, FR-11 fleet view (AD-7) | 3.6 maintenance drain + fleet map — Flow E | `tests/integration/test_story_3_6_maintenance.py`, `tests/e2e/story-3.6-maintenance-drain.spec.ts`, `tests/e2e/pages/FleetMapPage.ts` | T, E; local trace `evidence/impl2/playwright/story-3.6-trace.zip` | PASS |
+
+Requirements mapped to canonical backlog stories outside the six assignment stories, so not delivered in Impl-2: FR-3 full ordering contract (1.2; the ordering rules needed by 3.1 were implemented in Impl-1 B02), FR-6 reboot recovery (2.2), FR-9 maintenance release (canonical 3.3), FR-12/FR-13 and NFR-7/10/11/12 (Epic 4). Each is mapped to a story, so none is orphaned.
+
+### Gate decision
+
+| Check | Result |
+|---|---|
+| Assignment stories 3.1–3.6 mapped to tests and CI | 6/6 |
+| Unmapped requirements | 0 |
+| Functional acceptance (all six stories) | PASS |
+| Flow A red phase documented | PASS (3.4) |
+| Flow E POM, no hard waits, trace | PASS (3.6) |
+| Core-domain branch coverage ≥ 90% | PASS |
+| Flow D formal NFR (3.5 FULL profile) | **FAIL**: 66 req/s on SQLite and 20.57 req/s on PostgreSQL against a 2,000 req/s target |
+
+**Verdict: CONCERNS.** Every functional requirement passes with linked evidence. The only open item is the formal Story 3.5 capacity gate. It fails because the binding AD-1 contract requires a synchronous, atomic commit per heartbeat. Waiving the gate or changing AD-1 is a team decision, so this matrix does not award PASS for it.
