@@ -34,7 +34,12 @@ if not TEST_DATABASE_URL.startswith("sqlite") and not _test_database.endswith("_
 
 @pytest.fixture
 def settings() -> Settings:
-    return Settings(database_url=TEST_DATABASE_URL, policy_version="test-policy-v1", liveness_scan_seconds=0)
+    return Settings(
+        database_url=TEST_DATABASE_URL,
+        policy_version="test-policy-v1",
+        liveness_scan_seconds=0,
+        heartbeat_batch_window_ms=0,
+    )
 
 
 @pytest.fixture
@@ -48,6 +53,8 @@ def container(settings: Settings, fake_clock: FakeClock) -> Iterator[Container]:
     Base.metadata.drop_all(built.engine)
     Base.metadata.create_all(built.engine)
     yield built
+    if built.heartbeat_batch_writer is not None:
+        built.heartbeat_batch_writer.shutdown(timeout=5.0)
     built.engine.dispose()
 
 
