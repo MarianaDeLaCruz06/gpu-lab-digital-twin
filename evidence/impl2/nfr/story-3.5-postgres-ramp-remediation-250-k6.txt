@@ -1,0 +1,140 @@
+﻿COMMAND: C:\Users\maria\OneDrive\Desktop\gpu-lab-digital-twin\.tools\k6-v2.3.0-windows-amd64\k6.exe run tests/nfr/telemetry-storm.js
+PROFILE: ramp
+BACKEND: postgres
+RATE: 250
+DURATION: 10s
+SERVER_PID: 30188
+MAX_RSS_BYTES: 170876928
+MAX_RSS_MIB: 162.96
+K6_EXIT_CODE: 0
+
+STDOUT:
+
+         /\      Grafana   /ÔÇ¥ÔÇ¥/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ÔÇ¥ÔÇ¥\ 
+  /          \   |   (  |  (ÔÇ¥)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: tests/nfr/telemetry-storm.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 500 max VUs, 40s max duration (incl. graceful stop):
+              * telemetry_storm: 250.00 iterations/s for 10s (maxVUs: 125-500, gracefulStop: 30s)
+
+
+running (00.9s), 177/177 VUs, 7 complete and 0 interrupted iterations
+telemetry_storm   [   9% ] 177/177 VUs  00.9s/10s  250.00 iters/s
+
+running (01.9s), 289/290 VUs, 28 complete and 0 interrupted iterations
+telemetry_storm   [  19% ] 289/290 VUs  01.9s/10s  250.00 iters/s
+
+running (02.9s), 400/400 VUs, 50 complete and 0 interrupted iterations
+telemetry_storm   [  29% ] 400/400 VUs  02.9s/10s  250.00 iters/s
+
+running (03.9s), 500/500 VUs, 91 complete and 0 interrupted iterations
+telemetry_storm   [  39% ] 500/500 VUs  03.9s/10s  250.00 iters/s
+
+running (04.9s), 496/500 VUs, 125 complete and 0 interrupted iterations
+telemetry_storm   [  49% ] 496/500 VUs  04.9s/10s  250.00 iters/s
+
+running (05.9s), 500/500 VUs, 135 complete and 0 interrupted iterations
+telemetry_storm   [  59% ] 500/500 VUs  05.9s/10s  250.00 iters/s
+
+running (06.9s), 500/500 VUs, 167 complete and 0 interrupted iterations
+telemetry_storm   [  69% ] 500/500 VUs  06.9s/10s  250.00 iters/s
+
+running (07.9s), 500/500 VUs, 199 complete and 0 interrupted iterations
+telemetry_storm   [  79% ] 500/500 VUs  07.9s/10s  250.00 iters/s
+
+running (08.9s), 500/500 VUs, 263 complete and 0 interrupted iterations
+telemetry_storm   [  89% ] 500/500 VUs  08.9s/10s  250.00 iters/s
+
+running (09.9s), 500/500 VUs, 327 complete and 0 interrupted iterations
+telemetry_storm   [  99% ] 500/500 VUs  09.9s/10s  250.00 iters/s
+
+running (10.9s), 451/500 VUs, 376 complete and 0 interrupted iterations
+telemetry_storm Ôåô [ 100% ] 500/500 VUs  10s  250.00 iters/s
+
+running (11.9s), 436/500 VUs, 391 complete and 0 interrupted iterations
+telemetry_storm Ôåô [ 100% ] 500/500 VUs  10s  250.00 iters/s
+
+running (12.9s), 404/500 VUs, 423 complete and 0 interrupted iterations
+telemetry_storm Ôåô [ 100% ] 500/500 VUs  10s  250.00 iters/s
+
+running (13.9s), 360/500 VUs, 467 complete and 0 interrupted iterations
+telemetry_storm Ôåô [ 100% ] 500/500 VUs  10s  250.00 iters/s
+
+running (14.9s), 337/500 VUs, 490 complete and 0 interrupted iterations
+telemetry_storm Ôåô [ 100% ] 500/500 VUs  10s  250.00 iters/s
+
+running (15.9s), 276/500 VUs, 551 complete and 0 interrupted iterations
+telemetry_storm Ôåô [ 100% ] 500/500 VUs  10s  250.00 iters/s
+
+running (16.9s), 214/500 VUs, 613 complete and 0 interrupted iterations
+telemetry_storm Ôåô [ 100% ] 500/500 VUs  10s  250.00 iters/s
+
+running (17.9s), 180/500 VUs, 647 complete and 0 interrupted iterations
+telemetry_storm Ôåô [ 100% ] 500/500 VUs  10s  250.00 iters/s
+
+running (18.9s), 152/500 VUs, 675 complete and 0 interrupted iterations
+telemetry_storm Ôåô [ 100% ] 500/500 VUs  10s  250.00 iters/s
+
+running (19.9s), 092/500 VUs, 735 complete and 0 interrupted iterations
+telemetry_storm Ôåô [ 100% ] 500/500 VUs  10s  250.00 iters/s
+
+running (20.9s), 052/500 VUs, 775 complete and 0 interrupted iterations
+telemetry_storm Ôåô [ 100% ] 500/500 VUs  10s  250.00 iters/s
+
+running (21.9s), 023/500 VUs, 804 complete and 0 interrupted iterations
+telemetry_storm Ôåô [ 100% ] 500/500 VUs  10s  250.00 iters/s
+
+
+  Ôûê THRESHOLDS 
+
+    unhandled_server_error_rate
+    Ô£ô 'rate==0' rate=0.00%
+
+
+  Ôûê TOTAL RESULTS 
+
+    checks_total.......: 1654    74.654538/s
+    checks_succeeded...: 100.00% 1654 out of 1654
+    checks_failed......: 0.00%   0 out of 1654
+
+    Ô£ô no unhandled 5xx
+    Ô£ô canonical response or typed ordering conflict
+
+    CUSTOM
+    canonical_responses............: 827    37.327269/s
+    unhandled_server_error_rate....: 0.00%  0 out of 827
+
+    HTTP
+    http_req_duration..............: avg=8.87s min=368.74ms med=9.77s max=12.86s p(90)=12.32s p(95)=12.41s p(99)=12.51s
+      { expected_response:true }...: avg=8.87s min=368.74ms med=9.77s max=12.86s p(90)=12.32s p(95)=12.41s p(99)=12.51s
+    http_req_failed................: 0.00%  0 out of 827
+    http_reqs......................: 827    37.327269/s
+
+    EXECUTION
+    dropped_iterations.............: 1673   75.512117/s
+    iteration_duration.............: avg=8.88s min=369.83ms med=9.77s max=12.86s p(90)=12.32s p(95)=12.41s p(99)=12.51s
+    iterations.....................: 827    37.327269/s
+    vus............................: 23     min=23       max=500
+    vus_max........................: 500    min=177      max=500
+
+    NETWORK
+    data_received..................: 817 kB 37 kB/s
+    data_sent......................: 466 kB 21 kB/s
+
+
+
+
+running (22.2s), 000/500 VUs, 827 complete and 0 interrupted iterations
+telemetry_storm Ô£ô [ 100% ] 000/500 VUs  10s  250.00 iters/s
+
+
+STDERR:
+time="2026-11-08T00:20:24-05:00" level=warning msg="Insufficient VUs, reached 500 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=telemetry_storm
+

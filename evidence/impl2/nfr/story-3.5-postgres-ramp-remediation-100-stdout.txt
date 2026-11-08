@@ -1,0 +1,98 @@
+﻿
+         /\      Grafana   /ÔÇ¥ÔÇ¥/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ÔÇ¥ÔÇ¥\ 
+  /          \   |   (  |  (ÔÇ¥)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: tests/nfr/telemetry-storm.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 200 max VUs, 40s max duration (incl. graceful stop):
+              * telemetry_storm: 100.00 iterations/s for 10s (maxVUs: 50-200, gracefulStop: 30s)
+
+
+running (01.0s), 071/071 VUs, 6 complete and 0 interrupted iterations
+telemetry_storm   [  10% ] 071/071 VUs  01.0s/10s  100.00 iters/s
+
+running (02.0s), 121/121 VUs, 6 complete and 0 interrupted iterations
+telemetry_storm   [  20% ] 121/121 VUs  02.0s/10s  100.00 iters/s
+
+running (03.0s), 156/157 VUs, 35 complete and 0 interrupted iterations
+telemetry_storm   [  30% ] 156/156 VUs  03.0s/10s  100.00 iters/s
+
+running (04.0s), 197/198 VUs, 53 complete and 0 interrupted iterations
+telemetry_storm   [  40% ] 197/198 VUs  04.0s/10s  100.00 iters/s
+
+running (05.0s), 200/200 VUs, 73 complete and 0 interrupted iterations
+telemetry_storm   [  50% ] 200/200 VUs  05.0s/10s  100.00 iters/s
+
+running (06.0s), 200/200 VUs, 117 complete and 0 interrupted iterations
+telemetry_storm   [  60% ] 200/200 VUs  06.0s/10s  100.00 iters/s
+
+running (07.0s), 200/200 VUs, 140 complete and 0 interrupted iterations
+telemetry_storm   [  70% ] 200/200 VUs  07.0s/10s  100.00 iters/s
+
+running (08.0s), 200/200 VUs, 181 complete and 0 interrupted iterations
+telemetry_storm   [  80% ] 200/200 VUs  08.0s/10s  100.00 iters/s
+
+running (09.0s), 200/200 VUs, 220 complete and 0 interrupted iterations
+telemetry_storm   [  90% ] 200/200 VUs  09.0s/10s  100.00 iters/s
+
+running (10.0s), 200/200 VUs, 253 complete and 0 interrupted iterations
+telemetry_storm   [ 100% ] 200/200 VUs  10.0s/10s  100.00 iters/s
+
+running (11.0s), 180/200 VUs, 273 complete and 0 interrupted iterations
+telemetry_storm Ôåô [ 100% ] 200/200 VUs  10s  100.00 iters/s
+
+running (12.0s), 098/200 VUs, 355 complete and 0 interrupted iterations
+telemetry_storm Ôåô [ 100% ] 200/200 VUs  10s  100.00 iters/s
+
+running (13.0s), 052/200 VUs, 401 complete and 0 interrupted iterations
+telemetry_storm Ôåô [ 100% ] 200/200 VUs  10s  100.00 iters/s
+
+
+  Ôûê THRESHOLDS 
+
+    unhandled_server_error_rate
+    Ô£ô 'rate==0' rate=0.00%
+
+
+  Ôûê TOTAL RESULTS 
+
+    checks_total.......: 906     65.860704/s
+    checks_succeeded...: 100.00% 906 out of 906
+    checks_failed......: 0.00%   0 out of 906
+
+    Ô£ô no unhandled 5xx
+    Ô£ô canonical response or typed ordering conflict
+
+    CUSTOM
+    canonical_responses............: 453    32.930352/s
+    unhandled_server_error_rate....: 0.00%  0 out of 453
+
+    HTTP
+    http_req_duration..............: avg=4.52s min=462.2ms  med=4.66s max=6.33s p(90)=5.92s p(95)=6.15s p(99)=6.28s
+      { expected_response:true }...: avg=4.52s min=462.2ms  med=4.66s max=6.33s p(90)=5.92s p(95)=6.15s p(99)=6.28s
+    http_req_failed................: 0.00%  0 out of 453
+    http_reqs......................: 453    32.930352/s
+
+    EXECUTION
+    dropped_iterations.............: 547    39.763582/s
+    iteration_duration.............: avg=4.52s min=464.33ms med=4.66s max=6.33s p(90)=5.92s p(95)=6.15s p(99)=6.28s
+    iterations.....................: 453    32.930352/s
+    vus............................: 52     min=52       max=200
+    vus_max........................: 200    min=71       max=200
+
+    NETWORK
+    data_received..................: 448 kB 33 kB/s
+    data_sent......................: 255 kB 19 kB/s
+
+
+
+
+running (13.8s), 000/200 VUs, 453 complete and 0 interrupted iterations
+telemetry_storm Ô£ô [ 100% ] 000/200 VUs  10s  100.00 iters/s
+
