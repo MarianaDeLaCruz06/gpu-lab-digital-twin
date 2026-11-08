@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import threading
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from gpu_lab_twin.domain.errors import DomainError, ErrorCode
 from gpu_lab_twin.domain.explanation import Explanation, explain_heartbeat_decision
@@ -24,12 +25,24 @@ from gpu_lab_twin.ports.outbound.node_repository import (
     TransitionRecord,
 )
 
+if TYPE_CHECKING:
+    from gpu_lab_twin.application.heartbeat_batch_writer import DurableHeartbeatBatchWriter, HeartbeatCommand
+
+
+@dataclass(slots=True)
+class _PreparedHeartbeat:
+    cmd: HeartbeatCommand
+    result: HeartbeatResult
+    commit: HeartbeatCommit | IgnoredHeartbeatCommit | None
+    observe_payload: HeartbeatPayload | None = None
+
 
 class HeartbeatService:
     """Implements HeartbeatPort.
 
-    ``write_lock`` is the process-wide serialization point (AD-1): each node is reduced one event at
-    a time and ingest offsets are assigned in order. The repository's revision CAS is the final guard.
+    ``write_lock`` is the process-wide serialization point (AD-1). In batched mode, the HTTP path
+    enqueues and waits (ack-after-commit); the sequencer thread holds ``write_lock`` while preparing
+    and committing batches to preserve ordering and shared-mutation safety with liveness/maintenance.
     """
 
     def __init__(
@@ -41,6 +54,7 @@ class HeartbeatService:
         policy_version: str,
         write_lock: threading.Lock,
         downsampler: TelemetryDownsampler | None = None,
+        batch_writer: DurableHeartbeatBatchWriter | None = None,
     ) -> None:
         self._inventory = inventory
         self._nodes = nodes
@@ -48,124 +62,216 @@ class HeartbeatService:
         self._policy_version = policy_version
         self._write_lock = write_lock
         self._downsampler = downsampler
+        self._batch_writer = batch_writer
+
+    def attach_batch_writer(self, writer: DurableHeartbeatBatchWriter) -> None:
+        self._batch_writer = writer
+
+    def submit_heartbeat(self, node_id: str, payload: HeartbeatPayload):
+        writer = self._batch_writer
+        if writer is not None and getattr(writer, "_started", False):
+            return writer.submit(node_id, payload)
+        from concurrent.futures import Future
+
+        f: Future[HeartbeatResult] = Future()
+        try:
+            f.set_result(self._ingest_sync(node_id, payload))
+        except Exception as exc:
+            f.set_exception(exc)
+        return f
 
     def ingest_heartbeat(self, node_id: str, payload: HeartbeatPayload) -> HeartbeatResult:
+        return self.submit_heartbeat(node_id, payload).result()
+
+    def _ingest_sync(self, node_id: str, payload: HeartbeatPayload) -> HeartbeatResult:
+        with self._write_lock:
+            prepared = self._prepare(node_id, payload)
+            if prepared.commit is not None:
+                self._commit_prepared((prepared,))
+            self._observe_prepared((prepared,))
+            return prepared.result
+
+    def process_commands(self, commands: Sequence[HeartbeatCommand]) -> None:
+        """Prepare and durably commit commands in FIFO order. Caller (batch writer) holds ``write_lock``."""
+        if not commands:
+            return
+        pending: list[_PreparedHeartbeat] = []
+        pending_nodes: set[str] = set()
+        for cmd in commands:
+            # Keep prepare reads consistent with any pending uncommitted state for the same node.
+            if cmd.node_id in pending_nodes:
+                self._flush_prepared(pending)
+                pending = []
+                pending_nodes = set()
+            try:
+                prepared = self._prepare(cmd.node_id, cmd.payload)
+                prepared.cmd = cmd
+            except Exception as exc:
+                if pending:
+                    self._flush_prepared(pending)
+                    pending = []
+                    pending_nodes = set()
+                if not cmd.future.done():
+                    cmd.future.set_exception(exc)
+                continue
+
+            commit_node = _commit_node(prepared.commit)
+            pending.append(prepared)
+            if commit_node is not None:
+                pending_nodes.add(commit_node)
+        if pending:
+            self._flush_prepared(pending)
+
+    def _flush_prepared(self, prepared: Sequence[_PreparedHeartbeat]) -> None:
+        durable = [p for p in prepared if p.commit is not None]
+        if durable:
+            commits = tuple(p.commit for p in durable if p.commit is not None)
+            revisions = self._nodes.commit_heartbeat_batch(commits)
+            for rev, p in zip(revisions, durable, strict=True):
+                if isinstance(p.commit, HeartbeatCommit) and rev is not None and rev != p.result.node_revision:
+                    # Repository is authoritative for CAS revision; keep returned result consistent.
+                    p.result = HeartbeatResult(
+                        event_id=p.result.event_id,
+                        node_id=p.result.node_id,
+                        outcome=p.result.outcome,
+                        node_revision=rev,
+                        state=p.result.state,
+                        cordoned=p.result.cordoned,
+                        connectivity_status=p.result.connectivity_status,
+                        accepted_at=p.result.accepted_at,
+                        explanation=p.result.explanation,
+                    )
+        for p in prepared:
+            if not p.cmd.future.done():
+                p.cmd.future.set_result(p.result)
+        self._observe_prepared(prepared)
+
+    def _commit_prepared(self, prepared: Sequence[_PreparedHeartbeat]) -> None:
+        commits = tuple(p.commit for p in prepared if p.commit is not None)
+        if commits:
+            self._nodes.commit_heartbeat_batch(commits)
+
+    def _observe_prepared(self, prepared: Sequence[_PreparedHeartbeat]) -> None:
+        if self._downsampler is None:
+            return
+        for p in prepared:
+            if p.observe_payload is not None and p.result.outcome in {"APPLIED", "BOOT_CHANGE_DETECTED"}:
+                self._downsampler.observe(p.result.node_id, p.observe_payload)
+
+    def _prepare(self, node_id: str, payload: HeartbeatPayload) -> _PreparedHeartbeat:
         spec = self._inventory.node(node_id)
         if spec is None:
             raise _unknown_node(node_id)
         payload_hash = payload.canonical_hash(node_id)
 
-        with self._write_lock:
-            # Read time under the lock so commit order equals receive order.
-            at = self._clock.now()
-            validate_heartbeat(spec, payload, at)
+        # Read time in commit/receive order; batched mode reads per command in FIFO order.
+        at = self._clock.now()
+        validate_heartbeat(spec, payload, at)
 
-            recorded = self._nodes.find_heartbeat(payload.event_id)
-            if recorded is not None:
-                if recorded.payload_hash != payload_hash:
-                    raise DomainError(
-                        ErrorCode.ERR_IDEMPOTENCY_CONFLICT,
-                        f"{payload.event_id} was already used for a different payload (node {recorded.node_id}).",
-                        details={"eventId": str(payload.event_id), "recordedNodeId": recorded.node_id},
-                    )
-                return HeartbeatResult.from_document(recorded.response, outcome="DUPLICATE")
-
-            node = self._nodes.get_node(node_id)
-            if node is None:
-                raise _unknown_node(node_id)
-            if node.last_accepted_receive_at is not None and at < node.last_accepted_receive_at:
+        recorded = self._nodes.find_heartbeat(payload.event_id)
+        if recorded is not None:
+            if recorded.payload_hash != payload_hash:
                 raise DomainError(
-                    ErrorCode.ERR_CLOCK_ORDER,
-                    f"Time {at.isoformat()} must be later than {node.last_accepted_receive_at.isoformat()}.",
-                    details={"supplied": at.isoformat(), "lastAccepted": node.last_accepted_receive_at.isoformat()},
+                    ErrorCode.ERR_IDEMPOTENCY_CONFLICT,
+                    f"{payload.event_id} was already used for a different payload (node {recorded.node_id}).",
+                    details={"eventId": str(payload.event_id), "recordedNodeId": recorded.node_id},
                 )
-            known_prior_boot = (
-                node.current_boot_session_id is not None
-                and payload.boot_session_id != node.current_boot_session_id
-                and self._nodes.has_boot_session(node_id, payload.boot_session_id)
-            )
-            if known_prior_boot or _is_late_current_epoch(node, payload):
-                return self._record_late(node, payload, payload_hash, at)
+            result = HeartbeatResult.from_document(recorded.response, outcome="DUPLICATE")
+            return _PreparedHeartbeat(cmd=_dummy_cmd(node_id, payload), result=result, commit=None)
 
-            boot_change = check_boot_succession(node, payload)
+        node = self._nodes.get_node(node_id)
+        if node is None:
+            raise _unknown_node(node_id)
+        if node.last_accepted_receive_at is not None and at < node.last_accepted_receive_at:
+            raise DomainError(
+                ErrorCode.ERR_CLOCK_ORDER,
+                f"Time {at.isoformat()} must be later than {node.last_accepted_receive_at.isoformat()}.",
+                details={"supplied": at.isoformat(), "lastAccepted": node.last_accepted_receive_at.isoformat()},
+            )
+        known_prior_boot = (
+            node.current_boot_session_id is not None
+            and payload.boot_session_id != node.current_boot_session_id
+            and self._nodes.has_boot_session(node_id, payload.boot_session_id)
+        )
+        if known_prior_boot or _is_late_current_epoch(node, payload):
+            late_result, late_commit = self._late(node, payload, payload_hash, at)
+            return _PreparedHeartbeat(cmd=_dummy_cmd(node_id, payload), result=late_result, commit=late_commit)
 
-            known_reasons = {reason.value for reason in ReasonCode}
-            retained_status_reasons = tuple(code for code in node.active_reason_codes if code not in known_reasons)
-            prior_reasons = frozenset(ReasonCode(code) for code in node.active_reason_codes if code in known_reasons)
-            current_reasons = reasons_from(payload)
-            closed: tuple[ReasonCode, ...] = ()
-            if boot_change:
-                # AD-6: a proven successor/explicit state-loss marker starts a clean evidence epoch.
-                closed = tuple(prior_reasons)
-                prior_reasons = frozenset()
-                current_reasons |= {ReasonCode.RECOVERY_PENDING}
-            elif ReasonCode.SILENT in prior_reasons:
-                # Telemetry returned after OFFLINE: silence is over, but recovery needs ODD-3 evidence (I-T6).
-                prior_reasons -= {ReasonCode.SILENT}
-                current_reasons |= {ReasonCode.RECOVERY_PENDING}
-                closed = (ReasonCode.SILENT,)
-            retained = prior_reasons - current_reasons
-            maintenance_active = node.state in {NodeState.DRAINING, NodeState.MAINTENANCE}
-            decision = evaluate(
-                NodeFacts(
-                    has_current_heartbeat=True,
-                    reasons=prior_reasons | current_reasons,
-                    maintenance_active=maintenance_active,
-                    active_workload_count=0 if node.state is NodeState.MAINTENANCE else None,
-                )
-            )
-            explanation = explain_heartbeat_decision(
-                node_id=node_id,
-                payload=payload,
-                prior_state=node.state,
-                decision=decision,
-                retained_evidence={reason: node.reason_evidence.get(reason, ()) for reason in retained},
-                retained_observations={reason: node.reason_observations.get(reason, {}) for reason in retained},
-                policy_version=self._policy_version,
-            ).as_document()
-            if boot_change:
-                explanation["observedValues"].update(
-                    {
-                        "priorBootSessionId": node.current_boot_session_id,
-                        "previousBootSessionId": payload.previous_boot_session_id,
-                        "stateLoss": payload.state_loss,
-                        "evidenceEpoch": node.evidence_epoch + 1,
-                    }
-                )
-            result = HeartbeatResult(
-                event_id=payload.event_id,
-                node_id=node_id,
-                outcome="BOOT_CHANGE_DETECTED" if boot_change else "APPLIED",
-                node_revision=node.revision + 1,
-                state=decision.state,
-                cordoned=decision.cordoned,
-                connectivity_status=ConnectivityStatus.ONLINE,
-                accepted_at=at,
-                explanation=explanation,
-            )
-            observed = tuple(reason for reason in decision.reason_codes if reason in current_reasons)
-            self._nodes.commit_heartbeat(
-                _commit(
-                    node,
-                    payload,
-                    payload_hash,
-                    decision,
-                    observed,
-                    closed,
-                    explanation,
-                    result,
-                    at,
-                    evidence_epoch=node.evidence_epoch + 1 if boot_change else node.evidence_epoch,
-                    retained_status_reasons=retained_status_reasons,
-                )
-            )
-            if self._downsampler is not None:
-                self._downsampler.observe(node_id, payload)
-            return result
+        boot_change = check_boot_succession(node, payload)
 
-    def _record_late(
+        known_reasons = {reason.value for reason in ReasonCode}
+        retained_status_reasons = tuple(code for code in node.active_reason_codes if code not in known_reasons)
+        prior_reasons = frozenset(ReasonCode(code) for code in node.active_reason_codes if code in known_reasons)
+        current_reasons = reasons_from(payload)
+        closed: tuple[ReasonCode, ...] = ()
+        if boot_change:
+            closed = tuple(prior_reasons)
+            prior_reasons = frozenset()
+            current_reasons |= {ReasonCode.RECOVERY_PENDING}
+        elif ReasonCode.SILENT in prior_reasons:
+            prior_reasons -= {ReasonCode.SILENT}
+            current_reasons |= {ReasonCode.RECOVERY_PENDING}
+            closed = (ReasonCode.SILENT,)
+        retained = prior_reasons - current_reasons
+        maintenance_active = node.state in {NodeState.DRAINING, NodeState.MAINTENANCE}
+        decision = evaluate(
+            NodeFacts(
+                has_current_heartbeat=True,
+                reasons=prior_reasons | current_reasons,
+                maintenance_active=maintenance_active,
+                active_workload_count=0 if node.state is NodeState.MAINTENANCE else None,
+            )
+        )
+        explanation = explain_heartbeat_decision(
+            node_id=node_id,
+            payload=payload,
+            prior_state=node.state,
+            decision=decision,
+            retained_evidence={reason: node.reason_evidence.get(reason, ()) for reason in retained},
+            retained_observations={reason: node.reason_observations.get(reason, {}) for reason in retained},
+            policy_version=self._policy_version,
+        ).as_document()
+        if boot_change:
+            explanation["observedValues"].update(
+                {
+                    "priorBootSessionId": node.current_boot_session_id,
+                    "previousBootSessionId": payload.previous_boot_session_id,
+                    "stateLoss": payload.state_loss,
+                    "evidenceEpoch": node.evidence_epoch + 1,
+                }
+            )
+        result = HeartbeatResult(
+            event_id=payload.event_id,
+            node_id=node_id,
+            outcome="BOOT_CHANGE_DETECTED" if boot_change else "APPLIED",
+            node_revision=node.revision + 1,
+            state=decision.state,
+            cordoned=decision.cordoned,
+            connectivity_status=ConnectivityStatus.ONLINE,
+            accepted_at=at,
+            explanation=explanation,
+        )
+        observed = tuple(reason for reason in decision.reason_codes if reason in current_reasons)
+        commit = _commit(
+            node,
+            payload,
+            payload_hash,
+            decision,
+            observed,
+            closed,
+            explanation,
+            result,
+            at,
+            evidence_epoch=node.evidence_epoch + 1 if boot_change else node.evidence_epoch,
+            retained_status_reasons=retained_status_reasons,
+        )
+        return _PreparedHeartbeat(
+            cmd=_dummy_cmd(node_id, payload), result=result, commit=commit, observe_payload=payload
+        )
+
+    def _late(
         self, node: NodeSnapshot, payload: HeartbeatPayload, payload_hash: str, at: datetime
-    ) -> HeartbeatResult:
+    ) -> tuple[HeartbeatResult, IgnoredHeartbeatCommit]:
         evidence_ids = [str(payload.event_id)]
         if node.current_heartbeat_event_id:
             evidence_ids.append(node.current_heartbeat_event_id)
@@ -199,18 +305,28 @@ class HeartbeatService:
             accepted_at=at,
             explanation=explanation,
         )
-        self._nodes.commit_ignored_heartbeat(
-            IgnoredHeartbeatCommit(
-                node_id=node.node_id,
-                payload=payload,
-                payload_hash=payload_hash,
-                evidence_epoch=node.evidence_epoch,
-                explanation=explanation,
-                result=result.as_document(),
-                at=at,
-            )
+        commit = IgnoredHeartbeatCommit(
+            node_id=node.node_id,
+            payload=payload,
+            payload_hash=payload_hash,
+            evidence_epoch=node.evidence_epoch,
+            explanation=explanation,
+            result=result.as_document(),
+            at=at,
         )
-        return result
+        return result, commit
+
+
+def _commit_node(commit: HeartbeatCommit | IgnoredHeartbeatCommit | None) -> str | None:
+    if commit is None:
+        return None
+    if isinstance(commit, HeartbeatCommit):
+        return commit.projection.node_id
+    return commit.node_id
+
+
+def _dummy_cmd(node_id: str, payload: HeartbeatPayload) -> Any:
+    return type("_Cmd", (), {"node_id": node_id, "payload": payload, "future": None})()
 
 
 def _commit(

@@ -40,6 +40,9 @@ def create_app(container: Container | None = None) -> FastAPI:
             scan.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await scan
+        writer = getattr(resolved, "heartbeat_batch_writer", None)
+        if writer is not None:
+            writer.shutdown(timeout=5.0)
         if container is None:
             resolved.engine.dispose()
 

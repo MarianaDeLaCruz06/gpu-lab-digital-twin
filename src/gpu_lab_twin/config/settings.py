@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     policy_version: str = Field(default="impl1-v1", min_length=1)
     log_level: str = Field(default="INFO")
     liveness_scan_seconds: float = Field(default=5.0, ge=0, allow_inf_nan=False)
+    heartbeat_queue_capacity: int = Field(default=4096, ge=1)
+    heartbeat_max_batch: int = Field(default=32, ge=1)
+    heartbeat_batch_window_ms: float = Field(default=10.0, ge=0, allow_inf_nan=False)
+    heartbeat_enqueue_timeout_s: float = Field(default=5.0, gt=0, allow_inf_nan=False)
 
     @field_validator("fleet_fixture_path")
     @classmethod
