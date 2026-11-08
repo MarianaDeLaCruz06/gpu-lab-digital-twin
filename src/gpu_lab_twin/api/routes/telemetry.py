@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path
@@ -19,10 +20,15 @@ _ERRORS = {status: {"model": ErrorBody} for status in (404, 409, 422, 503)}
     response_model=IngestHeartbeatResponse,
     responses=_ERRORS,
 )
-def ingest_heartbeat(
+async def ingest_heartbeat(
     nodeId: Annotated[str, Path(pattern=NODE_ID_PATTERN)],
     request: IngestHeartbeatRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> IngestHeartbeatResponse:
-    result = container.heartbeats.ingest_heartbeat(nodeId, request.to_payload())
+    service = container.heartbeats
+    if hasattr(service, "submit_heartbeat"):
+        future = service.submit_heartbeat(nodeId, request.to_payload())
+        result = await asyncio.wrap_future(future)
+    else:
+        result = service.ingest_heartbeat(nodeId, request.to_payload())
     return IngestHeartbeatResponse.model_validate(result.as_document())
