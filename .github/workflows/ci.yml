@@ -40,3 +40,62 @@ jobs:
           psql postgresql://twin:twin@localhost:5432/gpu_lab_twin_test -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
           alembic upgrade head
           alembic downgrade base
+
+  e2e-playwright:
+    # Flow E (Story 3.6): real FastAPI backend + Chromium, Page Object Model.
+    # --trace on keeps a trace.zip for every CI run (config default stays on-first-retry).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with: {node-version: "20", cache: npm}
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Playwright E2E
+        run: npx playwright test --trace on
+      - name: Upload Playwright traces and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14
+
+  nfr-k6-smoke:
+    # Flow D (Story 3.5) regression gate: LOCAL_SMOKE profile only
+    # (5 req/s x 5 s, p95 < 5 s, zero unhandled 5xx). The formal FULL profile
+    # (2,000 events/s x 60 s) is NOT claimed here; see walkthrough-impl2.md.
+    runs-on: ubuntu-latest
+    env:
+      GPU_TWIN_DATABASE_URL: sqlite+pysqlite:///./nfr-smoke.db
+      GPU_TWIN_LIVENESS_SCAN_SECONDS: "0"
+      GPU_TWIN_POLICY_VERSION: impl2-nfr-v1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -e .
+      - uses: grafana/setup-k6-action@v1
+      - name: Start service
+        run: |
+          alembic upgrade head
+          nohup uvicorn gpu_lab_twin.main:app --host 127.0.0.1 --port 8766 > uvicorn.log 2>&1 &
+          curl --silent --fail --retry 30 --retry-connrefused --retry-delay 1 http://127.0.0.1:8766/ready
+      - name: k6 telemetry storm (smoke profile)
+        env:
+          BASE_URL: http://127.0.0.1:8766
+          K6_PROFILE: smoke
+        run: k6 run --summary-export k6-smoke-summary.json tests/nfr/telemetry-storm.js
+      - name: Upload k6 summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-smoke
+          path: |
+            k6-smoke-summary.json
+            uvicorn.log
