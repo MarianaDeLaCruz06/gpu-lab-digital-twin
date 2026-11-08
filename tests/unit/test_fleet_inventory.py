@@ -37,6 +37,14 @@ def test_duplicate_node_id_fails_closed(canonical: FleetInventory) -> None:
         FleetInventory.validated(nodes)
 
 
+def test_duplicate_gpu_id_fails_closed(canonical: FleetInventory) -> None:
+    nodes = list(canonical.nodes)
+    duplicate = replace(nodes[1].gpu_devices[0], gpu_device_id=nodes[0].gpu_devices[0].gpu_device_id)
+    nodes[1] = replace(nodes[1], gpu_devices=(duplicate,))
+    with pytest.raises(InventoryError, match="GPU device IDs must be unique"):
+        FleetInventory.validated(nodes)
+
+
 def test_missing_workstation_fails_closed(canonical: FleetInventory) -> None:
     with pytest.raises(InventoryError, match="31 workstations"):
         FleetInventory.validated(canonical.nodes[1:])
@@ -53,6 +61,35 @@ def test_non_positive_heartbeat_interval_fails_closed(canonical: FleetInventory)
     nodes = list(canonical.nodes)
     nodes[3] = replace(nodes[3], heartbeat_interval_ms=0)
     with pytest.raises(InventoryError, match="interval"):
+        FleetInventory.validated(nodes)
+
+
+def test_invalid_node_id_fails_closed(canonical: FleetInventory) -> None:
+    nodes = list(canonical.nodes)
+    nodes[0] = replace(nodes[0], node_id="INVALID_NODE")
+    with pytest.raises(InventoryError, match="violates"):
+        FleetInventory.validated(nodes)
+
+
+def test_wrong_gpu_count_fails_closed(canonical: FleetInventory) -> None:
+    nodes = list(canonical.nodes)
+    nodes[0] = replace(nodes[0], gpu_devices=())
+    with pytest.raises(InventoryError, match="expected 1 GPU"):
+        FleetInventory.validated(nodes)
+
+
+def test_non_contiguous_gpu_ordinals_fail_closed(canonical: FleetInventory) -> None:
+    nodes = list(canonical.nodes)
+    gpu = replace(nodes[0].gpu_devices[0], ordinal=1)
+    nodes[0] = replace(nodes[0], gpu_devices=(gpu,))
+    with pytest.raises(InventoryError, match="ordinals"):
+        FleetInventory.validated(nodes)
+
+
+def test_wrong_storage_capacity_fails_closed(canonical: FleetInventory) -> None:
+    nodes = list(canonical.nodes)
+    nodes[0] = replace(nodes[0], storage_capacity_gb=4000)
+    with pytest.raises(InventoryError, match="expected 500 GB storage"):
         FleetInventory.validated(nodes)
 
 

@@ -14,6 +14,11 @@ dist/
 .coverage
 coverage.xml
 htmlcov/
+playwright-report/
+test-results/
+.test-tmp/
+node_modules/
+.tools/
 
 # Local runtime
 .env

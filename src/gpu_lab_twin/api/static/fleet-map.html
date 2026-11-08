@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPU Lab Fleet Grid</title>
+  <link rel="stylesheet" href="/static/fleet-map.css">
+</head>
+<body>
+  <header><p class="eyebrow">Academic AI Compute Fabric</p><h1>Fleet Grid</h1><p>32-node simulated GPU lab</p></header>
+  <main>
+    <section aria-label="Fleet nodes"><div id="fleet-grid" class="grid" data-testid="fleet-grid"></div></section>
+    <aside id="detail" class="detail" data-testid="node-detail" hidden>
+      <button id="close-detail" aria-label="Close details">×</button>
+      <p class="eyebrow">Selected server</p><h2 data-testid="selected-label"></h2>
+      <p class="canonical" data-testid="canonical-id"></p>
+      <dl><div><dt>State</dt><dd data-testid="selected-state"></dd></div><div><dt>Eligibility</dt><dd data-testid="selected-eligibility"></dd></div></dl>
+      <label>Maintenance reason <input id="reason" value="Planned lab maintenance"></label>
+      <div class="actions">
+        <button id="start-drain" data-testid="start-drain">Start maintenance drain</button>
+        <button id="complete-jobs" data-testid="complete-jobs" hidden>Complete simulated jobs</button>
+      </div>
+      <p id="message" role="status" data-testid="maintenance-message"></p>
+      <p id="error" role="alert" data-testid="maintenance-error" hidden></p>
+    </aside>
+  </main>
+  <script src="/static/fleet-map.js"></script>
+</body>
+</html>

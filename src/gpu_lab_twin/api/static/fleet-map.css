@@ -1,0 +1,17 @@
+:root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; background:#07111f; color:#eef6ff; }
+body { margin:0; min-height:100vh; background:radial-gradient(circle at top right,#16375b,#07111f 45%); }
+header { padding:2rem 3rem 1rem; } h1 { margin:.15rem 0; font-size:2.4rem; }
+.eyebrow { color:#60d9c7; text-transform:uppercase; letter-spacing:.12em; font-size:.75rem; font-weight:700; }
+main { display:grid; grid-template-columns:1fr minmax(300px,380px); gap:1.5rem; padding:1rem 3rem 3rem; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:.8rem; }
+.node { text-align:left; padding:1rem; border:1px solid #2c4865; border-radius:12px; color:inherit; background:#0d1d2e; cursor:pointer; }
+.node:hover,.node:focus { border-color:#60d9c7; transform:translateY(-1px); }
+.node strong,.node span { display:block; }.node span { margin-top:.4rem; color:#a9bfd3; }
+.state { display:inline-block!important; width:auto; padding:.2rem .5rem; border-radius:999px; background:#1c3853; }
+.detail { position:sticky; top:1rem; align-self:start; padding:1.5rem; border:1px solid #31506d; border-radius:16px; background:#0b1928; box-shadow:0 24px 60px #0008; }
+.detail dl div { display:flex; justify-content:space-between; padding:.6rem 0; border-bottom:1px solid #22394e; }.detail dd { font-weight:700; }
+.canonical { color:#9ab1c7; } label,input { display:block; width:100%; box-sizing:border-box; } input { margin-top:.45rem; padding:.7rem; border-radius:8px; border:1px solid #3a5872; background:#07111f; color:inherit; }
+.actions { display:grid; gap:.6rem; margin-top:1rem; }.actions button { padding:.8rem; border:0; border-radius:8px; background:#60d9c7; color:#05201c; font-weight:800; cursor:pointer; }
+#complete-jobs { background:#ffbd66; color:#291700; } #close-detail { float:right; background:transparent; border:0; color:inherit; font-size:1.5rem; }
+[role=alert] { color:#ff8e94; } [role=status] { color:#91e6d8; }
+@media(max-width:850px){ main{grid-template-columns:1fr;padding:1rem}.detail{position:fixed;inset:10% 1rem auto;z-index:2}header{padding:1.5rem 1rem .5rem} }

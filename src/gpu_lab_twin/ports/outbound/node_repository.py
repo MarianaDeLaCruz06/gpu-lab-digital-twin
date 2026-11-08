@@ -8,6 +8,7 @@ from uuid import UUID
 
 from gpu_lab_twin.domain.fleet import FleetInventory
 from gpu_lab_twin.domain.heartbeat import HeartbeatPayload
+from gpu_lab_twin.domain.maintenance import MaintenanceResult, MaintenanceWindow, WorkloadSnapshot
 from gpu_lab_twin.domain.node import NodeSnapshot, NodeView
 from gpu_lab_twin.domain.node_state import ConnectivityStatus, NodeState
 
@@ -16,6 +17,26 @@ from gpu_lab_twin.domain.node_state import ConnectivityStatus, NodeState
 class RecordedHeartbeat:
     node_id: str
     payload_hash: str
+    response: Mapping[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class RecordedConnectivityObservation:
+    node_id: str
+    observation_hash: str
+    response: Mapping[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ConnectivityObservationCommit:
+    event_id: UUID
+    node_id: str
+    observation_hash: str
+    observed_at: datetime
+    accepted_at: datetime
+    observation: str
+    reason_code: str
+    explanation: Mapping[str, Any]
     response: Mapping[str, Any]
 
 
@@ -114,11 +135,19 @@ class NodeRepository(Protocol):
 
     def find_heartbeat(self, event_id: UUID) -> RecordedHeartbeat | None: ...
 
+    def find_connectivity_observation(self, event_id: UUID) -> RecordedConnectivityObservation | None: ...
+
     def commit_heartbeat(self, commit: HeartbeatCommit) -> int:
         """Apply atomically and return the new revision.
 
         Raises ``DomainError(ERR_REVISION_CONFLICT)`` if the revision moved, and leaves nothing written.
         """
+        ...
+
+    def commit_heartbeat_batch(
+        self, commits: tuple[HeartbeatCommit | IgnoredHeartbeatCommit, ...]
+    ) -> tuple[int | None, ...]:
+        """Apply commits in order in one durable transaction. Returns new revision per applied commit, else None."""
         ...
 
     def commit_ignored_heartbeat(self, commit: IgnoredHeartbeatCommit) -> None:
@@ -131,4 +160,14 @@ class NodeRepository(Protocol):
         """Apply atomically and return the new revision; ``ERR_REVISION_CONFLICT`` if the revision moved."""
         ...
 
+    def commit_connectivity_observation(self, commit: ConnectivityObservationCommit) -> None:
+        """Atomically append raw evidence and upsert one current unresolved-policy diagnostic."""
+        ...
+
     def list_fleet(self) -> tuple[NodeView, ...]: ...
+
+    def schedule_maintenance(self, node_id: str, window: MaintenanceWindow, at: datetime) -> MaintenanceResult: ...
+
+    def apply_workload_snapshot(self, snapshot: WorkloadSnapshot, at: datetime) -> MaintenanceResult: ...
+
+    def count_active_maintenance_locks(self, node_id: str) -> int: ...

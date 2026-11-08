@@ -1,0 +1,23 @@
+IMPL-2 Story 3.4 - GREEN Evidence
+=================================
+
+Targeted command:
+$env:UV_CACHE_DIR = Join-Path $env:TEMP 'gpu-lab-uv-cache'; uv run pytest tests/acceptance/test_story_3_4_connectivity_flapping.py tests/unit/test_connectivity_policy.py -q -ra
+
+Targeted result after matrix audit:
+........                                                                 [100%]
+8 passed in 1.17s
+
+Full validation command:
+$env:UV_CACHE_DIR = Join-Path $env:TEMP 'gpu-lab-uv-cache'; uv run pytest -q -ra
+
+Full result:
+........................................................................ [ 52%]
+..................................................................       [100%]
+138 passed in 11.93s
+
+Quality commands/results:
+- uv run ruff check . -> All checks passed
+- uv run ruff format --check . -> 117 files already formatted
+- hardcoded sleep scan -> 0 matches
+- committed skip/focus scan -> 0 matches
