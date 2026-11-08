@@ -1,0 +1,180 @@
+﻿
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: tests/nfr/telemetry-storm.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 3000 max VUs, 40s max duration (incl. graceful stop):
+              * telemetry_storm: 1500.00 iterations/s for 10s (maxVUs: 750-3000, gracefulStop: 30s)
+
+
+running (00.9s), 0540/0750 VUs, 757 complete and 0 interrupted iterations
+telemetry_storm   [   9% ] 0541/0750 VUs  00.9s/10s  1500.00 iters/s
+
+running (01.9s), 0804/0804 VUs, 1866 complete and 0 interrupted iterations
+telemetry_storm   [  19% ] 0804/0804 VUs  01.9s/10s  1500.00 iters/s
+
+running (02.9s), 1136/1138 VUs, 1903 complete and 0 interrupted iterations
+telemetry_storm   [  29% ] 1136/1138 VUs  02.9s/10s  1500.00 iters/s
+
+running (03.9s), 1458/1458 VUs, 1976 complete and 0 interrupted iterations
+telemetry_storm   [  39% ] 1458/1458 VUs  03.9s/10s  1500.00 iters/s
+
+running (04.9s), 1815/1815 VUs, 1978 complete and 0 interrupted iterations
+telemetry_storm   [  49% ] 1815/1815 VUs  04.9s/10s  1500.00 iters/s
+
+running (05.9s), 2149/2149 VUs, 1979 complete and 0 interrupted iterations
+telemetry_storm   [  59% ] 2149/2149 VUs  05.9s/10s  1500.00 iters/s
+
+running (06.9s), 2563/2563 VUs, 1981 complete and 0 interrupted iterations
+telemetry_storm   [  69% ] 2563/2563 VUs  06.9s/10s  1500.00 iters/s
+
+running (07.9s), 2907/2907 VUs, 2107 complete and 0 interrupted iterations
+telemetry_storm   [  79% ] 2907/2907 VUs  07.9s/10s  1500.00 iters/s
+
+running (08.9s), 3000/3000 VUs, 2107 complete and 0 interrupted iterations
+telemetry_storm   [  89% ] 3000/3000 VUs  08.9s/10s  1500.00 iters/s
+
+running (09.9s), 3000/3000 VUs, 2109 complete and 0 interrupted iterations
+telemetry_storm   [  99% ] 3000/3000 VUs  09.9s/10s  1500.00 iters/s
+
+running (10.9s), 2999/3000 VUs, 2110 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (11.9s), 2993/3000 VUs, 2116 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (12.9s), 2980/3000 VUs, 2129 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (13.9s), 2970/3000 VUs, 2139 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (14.9s), 2957/3000 VUs, 2152 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (15.9s), 2942/3000 VUs, 2167 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (16.9s), 2935/3000 VUs, 2174 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (17.9s), 2924/3000 VUs, 2185 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (18.9s), 2911/3000 VUs, 2198 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (19.9s), 2907/3000 VUs, 2202 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (20.9s), 2901/3000 VUs, 2208 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (21.9s), 2893/3000 VUs, 2216 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (22.9s), 2879/3000 VUs, 2230 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (23.9s), 2872/3000 VUs, 2237 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (24.9s), 2869/3000 VUs, 2240 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (25.9s), 2866/3000 VUs, 2243 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (26.9s), 2866/3000 VUs, 2243 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (27.9s), 2863/3000 VUs, 2246 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (28.9s), 2860/3000 VUs, 2249 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (29.9s), 2859/3000 VUs, 2250 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (30.9s), 2857/3000 VUs, 2252 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (31.9s), 2854/3000 VUs, 2255 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (32.9s), 2853/3000 VUs, 2256 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (33.9s), 2851/3000 VUs, 2258 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (34.9s), 2850/3000 VUs, 2259 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (35.9s), 2848/3000 VUs, 2261 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (36.9s), 2848/3000 VUs, 2261 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (37.9s), 2847/3000 VUs, 2262 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (38.9s), 2844/3000 VUs, 2265 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+running (39.9s), 2844/3000 VUs, 2265 complete and 0 interrupted iterations
+telemetry_storm ↓ [ 100% ] 3000/3000 VUs  10s  1500.00 iters/s
+
+
+  █ THRESHOLDS 
+
+    unhandled_server_error_rate
+    ✓ 'rate==0' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 4532   112.690887/s
+    checks_succeeded...: 53.81% 2439 out of 4532
+    checks_failed......: 46.18% 2093 out of 4532
+
+    ✓ no unhandled 5xx
+    ✗ canonical response or typed ordering conflict
+      ↳  7% — ✓ 173 / ✗ 2093
+
+    CUSTOM
+    canonical_responses............: 173    4.301748/s
+    unhandled_server_error_rate....: 0.00%  0 out of 2266
+
+    HTTP
+    http_req_duration..............: avg=1.37s  min=0s       med=0s      max=39.85s p(90)=0s       p(95)=14.77s p(99)=25.9s 
+      { expected_response:true }...: avg=18.32s min=252.76ms med=17.53s  max=39.85s p(90)=28.29s   p(95)=32.76s p(99)=38.32s
+    http_req_failed................: 92.67% 2100 out of 2266
+    http_reqs......................: 2266   56.345443/s
+
+    EXECUTION
+    dropped_iterations.............: 9892   245.970488/s
+    iteration_duration.............: avg=1.46s  min=1.11ms   med=53.81ms max=39.86s p(90)=309.22ms p(95)=14.78s p(99)=25.9s 
+    iterations.....................: 2266   56.345443/s
+    vus............................: 2844   min=540          max=3000
+    vus_max........................: 3000   min=750          max=3000
+
+    NETWORK
+    data_received..................: 167 kB 4.2 kB/s
+    data_sent......................: 1.7 MB 42 kB/s
+
+
+
+
+running (40.2s), 0000/3000 VUs, 2266 complete and 2843 interrupted iterations
+telemetry_storm ✓ [ 100% ] 2843/3000 VUs  10s  1500.00 iters/s
+

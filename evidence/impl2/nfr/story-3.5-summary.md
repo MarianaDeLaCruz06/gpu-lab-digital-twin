@@ -20,3 +20,7 @@
 
 ## Verdict
 **CONCERNS / FAIL for formal Story 3.5 NFR gate** (full 2,000 events/s × 60s, p95 < 5s, dropped_iterations==0, 0 unhandled 5xx, RSS < 200 MB under full load not demonstrated). Correctness (10 Hz, peak preservation, bounded projection, heartbeat semantic preservation in tests) and LOCAL_SMOKE remain evidenced; RED FULL baseline and diagnostics are authentically preserved. Do not claim PASS.
+
+## PostgreSQL controlled comparison
+
+PostgreSQL 17.11 on the canonical Compose configuration was measured separately at 100–2,000 target req/s. Canonical throughput peaked at 20.57 responses/s; at 2,000 target req/s, 10,095 iterations were dropped and 97.63% of completed requests failed at the transport layer. No unhandled HTTP 5xx were observed, but responsiveness failed decisively. The conditional PostgreSQL FULL run was not executed. Evidence: `story-3.5-postgres-ramp-summary.md` and per-rate artifacts.
