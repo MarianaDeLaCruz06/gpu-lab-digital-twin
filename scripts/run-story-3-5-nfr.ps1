@@ -5,7 +5,8 @@ param(
     [string]$Backend = 'sqlite',
     [string]$DatabaseUrl = '',
     [string]$Rate = '',
-    [string]$Duration = ''
+    [string]$Duration = '',
+    [string]$ArtifactTag = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -13,6 +14,7 @@ $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $evidenceRoot = Join-Path $projectRoot 'evidence\impl2\nfr'
 $artifactStem = "story-3.5-$Profile"
 if ($Backend -eq 'postgres') { $artifactStem = "story-3.5-postgres-$Profile" }
+if ($ArtifactTag) { $artifactStem = "$artifactStem-$ArtifactTag" }
 if ($Profile -eq 'ramp' -and $Rate) { $artifactStem = "$artifactStem-$Rate" }
 $databasePath = Join-Path $evidenceRoot "$artifactStem.db"
 $stdoutPath = Join-Path $evidenceRoot "$artifactStem-stdout.txt"
