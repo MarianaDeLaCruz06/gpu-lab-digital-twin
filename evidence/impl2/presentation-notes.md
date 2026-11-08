@@ -32,6 +32,7 @@ Module 3 — GPU Lab Digital Twin. Team: Mariana De La Cruz / Julian Motta. Bran
 - **Safe remediation:** SQLite WAL/busy_timeout/synchronous=NORMAL tuning (`adapters/db/engine.py`); diagnostic ramp support in NFR harness (formal profiles unchanged). No threshold/contract weakening.
 - **Ramp diagnostics:** canonical saturation ~71–78 req/s (100–1000 targets, 10s); failures escalated at 500+. No credible 2,000 req/s capacity. `evidence/impl2/nfr/story-3.5-ramp-analysis.md`.
 - **Formal FULL retest:** NOT rerun (Step 9 precondition unmet). Verdict: **FAIL for formal NFR gate / CONCERNS for functional correctness**. Do not claim PASS.
+- **PostgreSQL comparison:** PostgreSQL 17.11 used the same canonical route and frozen synchronous/atomic contract. Canonical throughput peaked at 20.57 responses/s; the 2,000 target dropped 10,095 iterations and failed 97.63% of HTTP requests. PostgreSQL FULL was not run because the diagnostic gate failed. Both backend results remain separately RED.
 
 ### Story 3.6
 - Backend maintenance integration: `test_story_3_6_maintenance.py` PASS.

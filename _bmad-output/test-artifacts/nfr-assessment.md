@@ -26,6 +26,7 @@ Implementation uses the canonical heartbeat route plus a bounded 10 Hz peak-pres
 - **LOCAL_SMOKE (historical):** `story-3.5-k6.txt`/smoke artifacts — 5 iters/s, 5s, 25 reqs, 0% errors, 0 unhandled 5xx, p95 72.49ms, p99 90.01ms, max RSS 103.18 MiB.
 - **FULL RED baseline (authentic, preserved):** `story-3.5-full-red-*` + originals — 2,000 it/s × 60s, 32 nodes, SQLite. 5,949 completed reqs (~66.03 req/s), 112,551 dropped, p95 50.14s, p99 58.04s, `http_req_failed` 55.45%, `unhandled_server_error_rate` 0.00% (custom 5xx metric), 2,000 VUs/insufficient VUs, connection refused under overload, MAX_RSS 316.03 MiB, k6 exit 99. Thresholds crossed.
 - **RAMP diagnostics (post-tuning):** `story-3.5-ramp-analysis.md` — canonical throughput saturated ~71–78 req/s at 100–1000 target req/s; 500+ showed request failures. SQLite WAL/busy_timeout/synchronous=NORMAL tuning applied (`adapters/db/engine.py`). **No credible capacity** for 2,000 req/s × 60s.
+- **PostgreSQL controlled ramps:** `story-3.5-postgres-ramp-summary.md` — PostgreSQL 17.11, canonical route and contract, 100–2,000 target req/s. Canonical throughput peaked at 20.57 responses/s; the 2,000 target dropped 10,095 iterations with 97.63% HTTP transport failures. PostgreSQL FULL was not run because credible capacity was absent.
 - **Formal FULL retest:** **NOT RE-EXECUTED** (Step 9 precondition unmet; repeating would not be truthful progress).
 
 ## Declared NFR criteria
@@ -68,4 +69,4 @@ Implementation uses the canonical heartbeat route plus a bounded 10 Hz peak-pres
 
 ## Gate decision
 
-**Overall Story 3.5 NFR gate: FAIL (formal) / CONCERNS (functional correctness retained).** Do not mark done. Do not claim PASS. Remediation preserved evidence and improved observability/tuning, but did not achieve credible 2,000 req/s sustained capacity under the current synchronous SQLite architecture without contract-risk redesign or a separately evidenced backend profile.
+**Overall Story 3.5 NFR gate: FAIL (formal) / CONCERNS (functional correctness retained).** Do not mark done. Do not claim PASS. Both SQLite and PostgreSQL controlled measurements fail far below 2,000 req/s under the frozen synchronous per-heartbeat atomic persistence contract.

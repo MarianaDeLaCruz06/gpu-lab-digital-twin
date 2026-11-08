@@ -42,7 +42,7 @@
 # - Story 1-2 remains backlog, but its canonical ordering and boot-disposition
 #   requirements needed by Impl-1 were implemented during B02 remediation.
 generated: 10-15-2026 16:02
-last_updated: 11-07-2026 (Impl-2 continuation/remediation: 3.4 done; 3.5 review — authentic FULL RED preserved, diagnosis+ramp complete, no credible 2,000 req/s capacity/formal retest not rerun, FAIL for formal NFR; 3.6 done)
+last_updated: 11-07-2026 (Impl-2 continuation/remediation: 3.4 done; 3.5 review — SQLite FULL RED preserved; PostgreSQL controlled ramps also show no credible 2,000 req/s capacity; formal retest not run; 3.6 done)
 project: gpu-lab-digital-twin
 project_key: NOKEY
 tracking_system: file-system
