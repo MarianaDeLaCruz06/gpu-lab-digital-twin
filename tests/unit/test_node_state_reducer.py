@@ -71,3 +71,28 @@ def test_recovery_outranks_degradation() -> None:
     reasons = frozenset({ReasonCode.RECOVERY_PENDING, ReasonCode.DRIVER_HEALTH_UNKNOWN})
     decision = evaluate(NodeFacts(has_current_heartbeat=True, reasons=reasons))
     assert (decision.state, decision.cordoned) == (NodeState.RECOVERING, True)
+
+
+@pytest.mark.parametrize(
+    ("active_workload_count", "expected_state", "expected_rule"),
+    [
+        (1, NodeState.DRAINING, "MAINTENANCE_DRAIN_ACTIVE"),
+        (0, NodeState.MAINTENANCE, "MAINTENANCE_FRESH_ZERO"),
+    ],
+)
+def test_maintenance_precedence_uses_active_workload_count(
+    active_workload_count: int, expected_state: NodeState, expected_rule: str
+) -> None:
+    decision = evaluate(
+        NodeFacts(
+            has_current_heartbeat=True,
+            reasons=frozenset({ReasonCode.THERMAL}),
+            maintenance_active=True,
+            active_workload_count=active_workload_count,
+        )
+    )
+
+    assert decision.state is expected_state
+    assert decision.rule_ids == (expected_rule,)
+    assert decision.reason_codes == (ReasonCode.THERMAL,)
+    assert decision.cordoned is True
