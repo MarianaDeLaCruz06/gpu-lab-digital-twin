@@ -11,6 +11,9 @@ let maintenanceRequest;
 
 const alias = node => node.nodeId === 'central-gpu-server' ? 'server-gpu-01' : node.nodeId;
 const eligibility = node => node.cordoned ? 'Unavailable for new work' : 'Eligible for new work';
+// Story 3.6 badge colors: Green (HEALTHY) -> Amber (DRAINING) -> Blue (MAINTENANCE).
+const TONES = { HEALTHY: 'green', DRAINING: 'amber', MAINTENANCE: 'blue', DEGRADED: 'red', OFFLINE: 'red' };
+const tone = state => TONES[state] ?? 'neutral';
 
 async function loadFleet() {
   const response = await fetch('/v1/nodes');
@@ -21,7 +24,7 @@ async function loadFleet() {
     card.className = 'node';
     card.dataset.testid = 'node-card';
     card.dataset.nodeId = node.nodeId;
-    card.innerHTML = `<strong>${alias(node)}</strong><span>${node.kind}</span><span class="state">${node.state}</span><span>${eligibility(node)}</span>`;
+    card.innerHTML = `<strong>${alias(node)}</strong><span>${node.kind}</span><span class="state" data-testid="node-state" data-tone="${tone(node.state)}">${node.state}</span><span>${eligibility(node)}</span>`;
     card.addEventListener('click', () => selectNode(node));
     return card;
   }));
@@ -37,6 +40,7 @@ function selectNode(node, reset = true) {
   document.querySelector('[data-testid="selected-label"]').textContent = alias(node);
   document.querySelector('[data-testid="canonical-id"]').textContent = node.nodeId;
   stateEl.textContent = node.state;
+  stateEl.dataset.tone = tone(node.state);
   eligibilityEl.textContent = eligibility(node);
   completeButton.hidden = node.state !== 'DRAINING';
   drainButton.textContent = maintenanceRequest && !reset ? 'Retry maintenance drain' : 'Start maintenance drain';

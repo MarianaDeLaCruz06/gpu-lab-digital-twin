@@ -40,4 +40,8 @@ test('Carlos drains server-gpu-01 without duplicate locks and sees maintenance',
     await fleet.expectState('MAINTENANCE');
     await fleet.expectEligibility('Unavailable for new work');
   });
+
+  await test.step('New work for the server is refused with a typed 409 while it is cordoned', async () => {
+    await fleet.expectNewWorkRefused();
+  });
 });
