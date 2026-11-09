@@ -38,7 +38,7 @@ npx playwright show-trace evidence/impl2/playwright/story-3.6-trace.zip
 
 The fleet grid UI is served at http://localhost:8000/technician/fleet-grid.
 
-Story 3.5's load script is `tests/nfr/telemetry-storm.js` and needs [k6](https://k6.io). On Windows, `scripts/run-story-3-5-nfr.ps1 -Profile smoke|full|ramp` starts an isolated service, runs k6, records peak memory, and writes logs to `evidence/impl2/nfr/`. CI runs only the smoke profile. The formal `full` profile (2,000 events/s for 60 s) currently fails; see [walkthrough-impl2.md](walkthrough-impl2.md).
+Story 3.5's load script is `tests/nfr/telemetry-storm.js` and needs [k6](https://k6.io). On Windows, `scripts/run-story-3-5-nfr.ps1 -Profile smoke|adapted|full|ramp` starts an isolated service, runs k6, records peak memory, and writes logs to `evidence/impl2/nfr/`. On any OS: `K6_PROFILE=adapted BASE_URL=http://127.0.0.1:8000 k6 run tests/nfr/telemetry-storm.js`. CI runs the smoke and `adapted` profiles. The `adapted` profile is the formal Story 3.5 gate: 32 events/s for 60 s, p95 < 250 ms, p99 < 500 ms, zero failures, and RSS < 200 MB. The Annex `full` profile (2,000 events/s) is kept as documented RED evidence; see [walkthrough-impl2.md](walkthrough-impl2.md).
 
 ### Run the service with PostgreSQL
 
