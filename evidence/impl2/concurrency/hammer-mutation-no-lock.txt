@@ -1,0 +1,25 @@
+# Mutation check: AD-1 write_lock replaced by contextlib.nullcontext() in bootstrap.py
+# 2026-11-08T23:19:25-05:00
+E       AssertionError: [503, 201, 503, 201, 503, 503, ...]
+E       assert 2 == 1
+sqlite3.IntegrityError: UNIQUE constraint failed: maintenance_locks.node_id
+sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) UNIQUE constraint failed: maintenance_locks.node_id
+sqlite3.IntegrityError: UNIQUE constraint failed: maintenance_locks.node_id
+sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) UNIQUE constraint failed: maintenance_locks.node_id
+E       AssertionError: [409, 503, 503, 409, 404, 200, ...]
+E       assert 1 == 16
+ERROR    gpu_lab_twin.adapters.db.node_repository:node_repository.py:808 unmapped integrity error for event ef4cb76a-92aa-594f-985f-cd6c5ed3c4f2: FOREIGN KEY constraint failed
+ERROR    gpu_lab_twin.adapters.db.node_repository:node_repository.py:808 unmapped integrity error for event ef4cb76a-92aa-594f-985f-cd6c5ed3c4f2: FOREIGN KEY constraint failed
+ERROR    gpu_lab_twin.adapters.db.node_repository:node_repository.py:808 unmapped integrity error for event ef4cb76a-92aa-594f-985f-cd6c5ed3c4f2: FOREIGN KEY constraint failed
+E       AssertionError: [200, 409, 503]
+E       assert False
+ERROR    gpu_lab_twin.adapters.db.node_repository:node_repository.py:808 unmapped integrity error for event e5b3862a-5607-5ce0-ac6f-1f5b9f89b499: UNIQUE constraint failed: telemetry_snapshots.ingest_offset
+ERROR    gpu_lab_twin.adapters.db.node_repository:node_repository.py:808 unmapped integrity error for event ecb19c0d-914d-5d74-aaeb-9af627aea3bb: FOREIGN KEY constraint failed
+ERROR    gpu_lab_twin.adapters.db.node_repository:node_repository.py:808 unmapped integrity error for event 6d3613ac-6392-58fb-a2a0-e657e1d19983: UNIQUE constraint failed: telemetry_snapshots.ingest_offset
+ERROR    gpu_lab_twin.adapters.db.node_repository:node_repository.py:808 unmapped integrity error for event 22c7c1e6-980d-5a0d-aecb-2758e0aa4f0f: UNIQUE constraint failed: telemetry_snapshots.ingest_offset
+ERROR    gpu_lab_twin.adapters.db.node_repository:node_repository.py:808 unmapped integrity error for event 1c416818-7f4e-56ce-af4b-115f9818da24: FOREIGN KEY constraint failed
+ERROR    gpu_lab_twin.adapters.db.node_repository:node_repository.py:808 unmapped integrity error for event f703c2d1-253d-52bd-ad11-057383d797a3: FOREIGN KEY constraint failed
+ERROR    gpu_lab_twin.adapters.db.node_repository:node_repository.py:808 unmapped integrity error for event 54e8b547-5e03-52ef-a88d-0b6ee2c7d20d: UNIQUE constraint failed: telemetry_snapshots.ingest_offset
+# Summary: 3 failed in 2.36s
+# Restored lock (normal code)
+3 passed in 1.87s
