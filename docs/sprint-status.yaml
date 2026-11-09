@@ -42,7 +42,7 @@
 # - Story 1-2 remains backlog, but its canonical ordering and boot-disposition
 #   requirements needed by Impl-1 were implemented during B02 remediation.
 generated: 10-15-2026 16:02
-last_updated: 11-07-2026 (Impl-2 continuation/remediation: 3.4 done; 3.5 review — SQLite FULL RED preserved; PostgreSQL controlled ramps also show no credible 2,000 req/s capacity; formal retest not run; 3.6 done)
+last_updated: 11-08-2026 (Impl-2 delivery: 3.5 done under the adapted formal NFR gate I2-DL-15 — CI run 42561772122 p95 8.2 ms, p99 10.6 ms, 0 failed, RSS 84 MiB; Annex 2,000 ev/s FULL kept as RED evidence)
 project: gpu-lab-digital-twin
 project_key: NOKEY
 tracking_system: file-system
@@ -81,5 +81,5 @@ assignment_story_status:
   '3.2-silent-node-detection': done
   '3.3-thermal-cordon': done
   '3.4-anti-flapping-hysteresis': done
-  '3.5-telemetry-storm-downsampling': review
+  '3.5-telemetry-storm-downsampling': done
   '3.6-visual-fleet-drain-orchestration': done

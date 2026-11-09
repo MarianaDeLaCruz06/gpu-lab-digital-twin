@@ -19,6 +19,17 @@ const fullScenario = {
   preAllocatedVUs: 256,
   maxVUs: 2000,
 };
+// Story 3.5 adapted formal gate (I2-DL-15): 32 nodes x 1 heartbeat/s for 60 s, i.e. 10x the
+// fleet's configured 0.1 Hz heartbeat load, every event durably committed before its ack (AD-1).
+// The Annex 2,000 events/s figure stays available as the `full` profile and is kept as RED evidence.
+const adaptedScenario = {
+  executor: 'constant-arrival-rate',
+  rate: 32,
+  timeUnit: '1s',
+  duration: '60s',
+  preAllocatedVUs: 16,
+  maxVUs: 64,
+};
 const smokeScenario = {
   executor: 'constant-arrival-rate',
   rate: 5,
@@ -41,15 +52,29 @@ function rampScenario() {
   };
 }
 const isRamp = profile === 'ramp' || Boolean(__ENV.RAMP_RATE || __ENV.K6_RATE);
-const scenario = isRamp ? rampScenario() : (profile === 'full' ? fullScenario : smokeScenario);
+const namedScenarios = { full: fullScenario, adapted: adaptedScenario, smoke: smokeScenario };
+const scenario = isRamp ? rampScenario() : (namedScenarios[profile] || smokeScenario);
+const isAdapted = profile === 'adapted' && !isRamp;
+if (isAdapted) {
+  // A typed 409 ordering conflict is a canonical, handled answer; anything else counts as a failed request.
+  http.setResponseCallback(http.expectedStatuses(200, 409));
+}
 
 export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
   scenarios: { telemetry_storm: scenario },
   thresholds: {
     unhandled_server_error_rate: ['rate==0'],
-    ...(isRamp ? {} : { http_req_duration: ['p(95)<5000'] }),
+    ...(isRamp || isAdapted ? {} : { http_req_duration: ['p(95)<5000'] }),
     ...(profile === 'full' && !isRamp ? { dropped_iterations: ['count==0'] } : {}),
+    ...(isAdapted
+      ? {
+          http_req_duration: ['p(95)<250', 'p(99)<500'],
+          http_req_failed: ['rate==0'],
+          checks: ['rate==1'],
+          dropped_iterations: ['count==0'],
+        }
+      : {}),
   },
 };
 

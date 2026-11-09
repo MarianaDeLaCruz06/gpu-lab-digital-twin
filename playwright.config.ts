@@ -1,9 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
+import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 
 const baseURL = process.env.BASE_URL ?? 'http://127.0.0.1:8765';
 const runId = process.env.PLAYWRIGHT_RUN_ID ?? `${process.pid}-${Date.now()}`;
 const databasePath = path.resolve(`test-results/playwright-e2e-${runId}.db`);
+// SQLite cannot create the database file when its folder is missing (fresh clone or CI).
+mkdirSync(path.dirname(databasePath), { recursive: true });
 
 export default defineConfig({
   testDir: './tests/e2e',

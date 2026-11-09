@@ -25,6 +25,21 @@ docker compose exec db createdb -U twin gpu_lab_twin_test
 GPU_TWIN_TEST_DATABASE_URL=postgresql+psycopg://twin:twin@localhost:5433/gpu_lab_twin_test pytest
 ```
 
+### Browser E2E (Playwright) and load tests (k6)
+
+Story 3.6 has a Playwright test that drives the real service. It needs Node.js 20+ and [uv](https://docs.astral.sh/uv/), because Playwright starts the API with `uv run`:
+
+```bash
+npm ci
+npx playwright install chromium
+npx playwright test                 # trace.zip is kept on retry; add --trace on to always keep one
+npx playwright show-trace evidence/impl2/playwright/story-3.6-trace.zip
+```
+
+The fleet grid UI is served at http://localhost:8000/technician/fleet-grid.
+
+Story 3.5's load script is `tests/nfr/telemetry-storm.js` and needs [k6](https://k6.io). On Windows, `scripts/run-story-3-5-nfr.ps1 -Profile smoke|adapted|full|ramp` starts an isolated service, runs k6, records peak memory, and writes logs to `evidence/impl2/nfr/`. On any OS: `K6_PROFILE=adapted BASE_URL=http://127.0.0.1:8000 k6 run tests/nfr/telemetry-storm.js`. CI runs the smoke and `adapted` profiles. The `adapted` profile is the formal Story 3.5 gate: 32 events/s for 60 s, p95 < 250 ms, p99 < 500 ms, zero failures, and RSS < 200 MB. The Annex `full` profile (2,000 events/s) is kept as documented RED evidence; see [walkthrough-impl2.md](walkthrough-impl2.md).
+
 ### Run the service with PostgreSQL
 
 ```bash
@@ -66,7 +81,7 @@ src/gpu_lab_twin/
 └── bootstrap.py   composition root wiring adapters to ports
 fixtures/fleet.json   canonical 32-node seed data
 migrations/           Alembic migrations (mirror docs/contracts/schema.sql)
-tests/                unit + integration tests (pytest)
+tests/                unit, integration and acceptance tests (pytest); e2e/ (Playwright + Page Objects); nfr/ (k6)
 docs/                 PRD, active contracts, sprint-status.yaml, AI decision log
 ```
 
@@ -87,6 +102,10 @@ Every error response uses the contract `ErrorBody` (`code`, `message`, `retryabl
 | [docs/sprint-status.yaml](docs/sprint-status.yaml) | BMad sprint tracking |
 | [docs/ai-decision-log.md](docs/ai-decision-log.md) | Impl-1 AI prompts, outputs, and human review decisions |
 | [walkthrough-impl1.md](walkthrough-impl1.md) | Impl-1 implementation walkthrough |
+| [walkthrough-impl2.md](walkthrough-impl2.md) | Impl-2 walkthrough: stories 3.4–3.6, testing flows, k6 and Playwright results |
+| [docs/ai-decision-log-impl2.md](docs/ai-decision-log-impl2.md) | Impl-2 AI decision log |
+| [test/traceability-matrix.md](test/traceability-matrix.md) | Requirement → story → test → CI traceability and the Impl-2 quality gate |
+| [evidence/impl2/](evidence/impl2/) | ATDD red/green logs, k6 results, Playwright run log and trace |
 | `planning/`, `ux/`, `reviews/`, `test/` | Frozen Plan-2 / Solu-2 baseline (the `test/` RED contract suite is kept as Solu-2 evidence and is outside the default `pytest` run) |
 
 ## Scope

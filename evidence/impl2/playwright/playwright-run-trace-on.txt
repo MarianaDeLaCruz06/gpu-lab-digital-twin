@@ -1,0 +1,11 @@
+COMMAND: npx playwright test --trace on --reporter=list
+DATE: 2026-11-08T12:30:09-05:00
+HEAD: ae0ee53 + playwright.config.ts mkdir fix (feature/impl2-deliverables)
+
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests\e2e\story-3.6-maintenance-drain.spec.ts:6:1 › Carlos drains server-gpu-01 without duplicate locks and sees maintenance (1.8s)
+
+  1 passed (8.2s)
+EXIT: 0
