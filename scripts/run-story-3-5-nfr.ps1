@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('smoke', 'full', 'ramp')]
+    [ValidateSet('smoke', 'adapted', 'full', 'ramp')]
     [string]$Profile = 'smoke',
     [ValidateSet('sqlite', 'postgres')]
     [string]$Backend = 'sqlite',

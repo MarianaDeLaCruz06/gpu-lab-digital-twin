@@ -66,36 +66,65 @@ jobs:
             playwright-report/
           retention-days: 14
 
-  nfr-k6-smoke:
-    # Flow D (Story 3.5) regression gate: LOCAL_SMOKE profile only
-    # (5 req/s x 5 s, p95 < 5 s, zero unhandled 5xx). The formal FULL profile
-    # (2,000 events/s x 60 s) is NOT claimed here; see walkthrough-impl2.md.
+  nfr-k6:
+    # Flow D (Story 3.5) quality gate. Runs the smoke profile and the adapted formal profile
+    # (32 nodes x 1 heartbeat/s for 60 s; p95 < 250 ms, p99 < 500 ms, zero failed requests, zero
+    # dropped iterations) while sampling the service RSS, which must stay below 200 MB.
+    # The Annex 2,000 events/s `full` profile is NOT run here; it is kept as RED evidence (I2-DL-15).
     runs-on: ubuntu-latest
     env:
-      GPU_TWIN_DATABASE_URL: sqlite+pysqlite:///./nfr-smoke.db
+      GPU_TWIN_DATABASE_URL: sqlite+pysqlite:///./nfr.db
       GPU_TWIN_LIVENESS_SCAN_SECONDS: "0"
       GPU_TWIN_POLICY_VERSION: impl2-nfr-v1
+      BASE_URL: http://127.0.0.1:8766
+      RSS_LIMIT_KB: "204800"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
       - run: pip install -e .
       - uses: grafana/setup-k6-action@v1
-      - name: Start service
+      - name: Start service and RSS sampler
         run: |
           alembic upgrade head
           nohup uvicorn gpu_lab_twin.main:app --host 127.0.0.1 --port 8766 > uvicorn.log 2>&1 &
-          curl --silent --fail --retry 30 --retry-connrefused --retry-delay 1 http://127.0.0.1:8766/ready
+          echo $! > uvicorn.pid
+          curl --silent --fail --retry 30 --retry-connrefused --retry-delay 1 "$BASE_URL/ready"
+          nohup bash -c 'while kill -0 "$(cat uvicorn.pid)" 2>/dev/null; do ps -o rss= -p "$(cat uvicorn.pid)" >> rss-kb.txt; sleep 1; done' > /dev/null 2>&1 &
       - name: k6 telemetry storm (smoke profile)
-        env:
-          BASE_URL: http://127.0.0.1:8766
-          K6_PROFILE: smoke
+        env: {K6_PROFILE: smoke}
         run: k6 run --summary-export k6-smoke-summary.json tests/nfr/telemetry-storm.js
-      - name: Upload k6 summary
+      - name: k6 telemetry storm (adapted formal profile, 32 ev/s x 60 s)
+        env: {K6_PROFILE: adapted}
+        run: k6 run --summary-export k6-adapted-summary.json tests/nfr/telemetry-storm.js
+      - name: Assert peak RSS below 200 MB and publish the NFR summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json, os, pathlib
+          rss = [int(line) for line in pathlib.Path("rss-kb.txt").read_text().split() if line.strip()]
+          peak_mib = max(rss) / 1024
+          limit_mib = int(os.environ["RSS_LIMIT_KB"]) / 1024
+          print(f"::notice title=Story 3.5 RSS::peak {peak_mib:.1f} MiB over {len(rss)} samples (limit {limit_mib:.0f} MiB)")
+          path = pathlib.Path("k6-adapted-summary.json")
+          if path.exists():
+              m = json.loads(path.read_text())["metrics"]
+              d, f, it = m["http_req_duration"], m["http_req_failed"], m["iterations"]
+              dropped = m.get("dropped_iterations", {}).get("count", 0)
+              print(
+                  "::notice title=Story 3.5 adapted k6::"
+                  f"requests={it['count']} rate={it['rate']:.1f}/s p95={d['p(95)']:.1f}ms p99={d['p(99)']:.1f}ms "
+                  f"max={d['max']:.1f}ms failed={f.get('value', f.get('rate', 0)):.4f} dropped={dropped}"
+              )
+          assert peak_mib < limit_mib, f"peak RSS {peak_mib:.1f} MiB exceeds {limit_mib:.0f} MiB"
+          PY
+      - name: Upload k6 summaries
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: k6-smoke
+          name: k6-nfr
           path: |
             k6-smoke-summary.json
+            k6-adapted-summary.json
+            rss-kb.txt
             uvicorn.log
