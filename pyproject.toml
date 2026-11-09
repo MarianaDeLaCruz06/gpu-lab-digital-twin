@@ -36,8 +36,6 @@ where = ["src"]
 [tool.setuptools.package-data]
 "gpu_lab_twin.api" = ["static/*.html", "static/*.css", "static/*.js"]
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
